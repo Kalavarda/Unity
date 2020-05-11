@@ -1,13 +1,15 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Assets.Scripts.Model;
 using Assets.Scripts.Utils;
 using UnityEngine;
+using Random = System.Random;
 
 public class EnemyBehaviour : MonoBehaviour
 {
     private ISpawned _thisEnemy;
     private DpsMeter _dpsMeter;
+    private static Random _rand = new Random();
+    private readonly Player _player = Player.Instance;
 
     void Start()
     {
@@ -29,18 +31,23 @@ public class EnemyBehaviour : MonoBehaviour
 
         if (_thisEnemy is ISkilled skilled)
         {
-            var skill = skilled.Skills.FirstOrDefault(sk => sk.ReadyToUse); // сделать рандомную выборку
-            if (skill != null)
-            {
-                var distance = Utils.Distance(PlayerBehaviour.Instance.PlayerGameObject, gameObject);
-                skilled.Use(skill, Player.Instance, distance, () =>
-                {
-                    var animState = AnimationAttribute.GetAnimationState(skill);
-                    if (animState != null)
-                        AnimationManagerBase.CreateOrGet(gameObject).SetState(animState.Value);
+            var distance = Utils.Distance(PlayerBehaviour.Instance.PlayerGameObject, gameObject);
 
-                    SkillBehaviour.GetAudioSource(skill)?.Play();
-                });
+            var availableSkills = skilled.Skills.Where(sk => sk.ReadyToUse(_player, distance)).ToArray();
+            if (availableSkills.Any())
+            {
+                var skill = availableSkills[_rand.Next(availableSkills.Length)];
+                if (skill != null)
+                {
+                    skilled.Use(skill, _player, distance, () =>
+                    {
+                        var animState = AnimationAttribute.GetAnimationState(skill);
+                        if (animState != null)
+                            AnimationManagerBase.CreateOrGet(gameObject).SetState(animState.Value);
+
+                        SkillBehaviour.GetAudioSource(skill)?.Play();
+                    });
+                }
             }
         }
     }

@@ -13,9 +13,11 @@ namespace Assets.Scripts.Model
 
         TimeSpan Cooldown { get; }
 
-        bool ReadyToUse { get; }
-
         float CooldownNormalized { get; }
+
+        float MaxDistance { get; }
+
+        bool ReadyToUse(IHealth target, float distance);
 
         void Use(IHealth target, IHealth source, float distance, Action onStartUse);
     }

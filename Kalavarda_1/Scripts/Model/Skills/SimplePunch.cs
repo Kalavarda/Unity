@@ -1,4 +1,5 @@
 ﻿using System;
+using Assets.Scripts.Model.Buffs;
 using Assets.Scripts.Utils;
 using JetBrains.Annotations;
 
@@ -37,9 +38,14 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
-        public bool ReadyToUse => Cooldown == TimeSpan.Zero;
+        public bool ReadyToUse(IHealth target, float distance)
+        {
+            return Cooldown == TimeSpan.Zero && target != null && distance < MaxDistance;
+        }
 
         public float CooldownNormalized => (float)Cooldown.TotalSeconds / (float)Interval.TotalSeconds;
+
+        public float MaxDistance => _weapon.MaxDistance;
 
         public SimplePunch([NotNull] IWeapon weapon)
         {
@@ -49,19 +55,16 @@ namespace Assets.Scripts.Model.Skills
 
         public void Use(IHealth target, IHealth source, float distance, Action onStartUse)
         {
-            if (Cooldown > TimeSpan.Zero)
-                return;
-
-            if (target == null)
-                return;
-
-            if (_weapon.MaxDistance < distance)
+            if (!ReadyToUse(target, distance))
                 return;
 
             _lastUseTime = DateTime.Now;
             onStartUse?.Invoke();
 
-            var ratio = ((ISkilled)source).GetSkillPower(this);
+            var ratio = 1f;
+            if (source is ISkilled skilled)
+                ratio = skilled.GetSkillPower(this);
+
             target.ChangeHP(-ratio * _weapon.Power, source, this);
         }
     }

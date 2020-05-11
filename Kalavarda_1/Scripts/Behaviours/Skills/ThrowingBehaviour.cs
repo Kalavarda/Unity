@@ -48,13 +48,17 @@ namespace Assets.Scripts.Behaviours.Skills
             IHealth health = null;
             var velocity = 0f;
             if (SpawnerBehaviour.AllSpawned.TryGetValue(collision.gameObject, out var spawned))
+            {
                 if (spawned is IHealth h)
                 {
                     health = h;
                     velocity = collision.relativeVelocity.magnitude;
                 }
+                tuple.Item1.OnOnCollisionEnter(health, velocity);
+            }
+            else
+                tuple.Item1.OnOnCollisionEnter(null, velocity);
 
-            tuple.Item1.OnOnCollisionEnter(health, velocity);
             Destroy(tuple.Item2);
         }
 
@@ -66,7 +70,7 @@ namespace Assets.Scripts.Behaviours.Skills
             var clone = Instantiate(original, startTransform.position, startTransform.rotation);
 
             var startPosition = new Vector3(startTransform.position.x, startTransform.position.y, startTransform.position.z);
-            startPosition += startTransform.up * 2.5f;
+            startPosition += startTransform.up * 2.0f;
 
             clone.transform.SetPositionAndRotation(startPosition, startTransform.rotation);
             AddThrowing(throwing, clone);

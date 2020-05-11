@@ -53,7 +53,7 @@ public class CraftBehaviour : MonoBehaviour
                 var result = _craftMachine.Craft(selectedRecipe, 1f);
                 if (result.Result.Any())
                 {
-                    Message.text = "Предмет '" + selectedRecipe.Result.Prototype.Name + "' успешно создан!";
+                    Message.text = "Успешно создано: " + selectedRecipe.Result.Prototype.Name;
                     SuccessSound.Play();
                 }
                 else
@@ -70,8 +70,12 @@ public class CraftBehaviour : MonoBehaviour
         }
     }
 
-    public void StartCraft()
+    void OnDisable()
     {
-        gameObject.SetActive(true);
+        Message.text = string.Empty;
+    }
+
+    void OnEnable()
+    {
     }
 }

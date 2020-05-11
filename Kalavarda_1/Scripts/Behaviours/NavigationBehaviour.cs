@@ -41,6 +41,13 @@ public class NavigationBehaviour : MonoBehaviour
 
     private void Navigate(IEnemy enemy, GameObject playerGameObject, Player player)
     {
+        if (enemy is IHealth health)
+            if (health.IsDied)
+            {
+                _agent.isStopped = true;
+                return;
+            }
+
         var animMaganer = AnimationManagerBase.CreateOrGet(gameObject);
 
         var distance = Utils.Distance(gameObject, playerGameObject);

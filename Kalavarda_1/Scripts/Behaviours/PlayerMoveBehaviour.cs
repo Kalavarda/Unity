@@ -1,4 +1,5 @@
 ﻿using System;
+using Assets.Scripts.Model;
 using Assets.Scripts.Utils;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -12,6 +13,7 @@ namespace Assets.Scripts.Behaviours
         public Transform CenterPoint;
         public float MoveSpeed = 1.388f;
         public float RotationSpeed = 6.28f;
+        public bool RotatePlayerByWASD = true;
 
         public static PlayerMoveBehaviour Instance { get; private set; }
 
@@ -24,6 +26,7 @@ namespace Assets.Scripts.Behaviours
         private bool jumping;
 
         private Vector3 _lastCollisionImpulse;
+        private readonly Player _player = Model.Player.Instance;
 
         void Start()
         {
@@ -46,13 +49,15 @@ namespace Assets.Scripts.Behaviours
             if (Input.GetMouseButton((int)MouseButton.LeftMouse))
                 if (!Input.GetMouseButton((int) MouseButton.RightMouse))
                 {
-                    var playerAngle = GetPlayerAngle(CenterPoint.eulerAngles.y, w, a, s, d);
+                    var playerAngle = CenterPoint.eulerAngles.y;
+                    if (RotatePlayerByWASD)
+                        playerAngle = GetPlayerAngle(playerAngle, w, a, s, d);
                     var rot = Quaternion.Euler(0, playerAngle, 0);
                     _rigidbody.MoveRotation(Quaternion.Lerp(_rigidbody.rotation, rot, RotationSpeed * Time.deltaTime));
                 }
 
             if (w || a || s || d)
-                Forward(MoveSpeed * Model.Player.Instance.Characteristics.SpeedRatio.Value);
+                Move(MoveSpeed * _player.Characteristics.SpeedRatio.Value, w, a, s, d);
             else
                 AnimationManager?.SetState(AnimationState.Idle);
             
@@ -72,7 +77,7 @@ namespace Assets.Scripts.Behaviours
             });
         }
 
-        private void Forward(float maxSpeed)
+        private void Move(float maxSpeed, bool w, bool a, bool s, bool d)
         {
             if (jumping)
                 return;
@@ -82,8 +87,44 @@ namespace Assets.Scripts.Behaviours
                 _rigidbody.AddForce(Player.up * 100f, ForceMode.Force); // todo: magic number (need Time.deltaTime?)
 
             if (_rigidbody.velocity.magnitude < maxSpeed)
-                _rigidbody.AddForce(Player.forward * _walkForce * Time.deltaTime, ForceMode.Force);
+            {
+                var direction = GetDirection(Player, w, a, s, d);
+                _rigidbody.AddForce(direction * _walkForce * Time.deltaTime, ForceMode.Force);
+            }
+
             AnimationManager?.SetState(AnimationState.GoForward);
+        }
+
+        private Vector3 GetDirection(Transform player, bool w, bool a, bool s, bool d)
+        {
+            if (RotatePlayerByWASD)
+                return player.forward;
+
+            if (w)
+            {
+                if (a)
+                    return Vector3.Lerp(player.forward, -player.right, 0.5f);
+                if (d)
+                    return Vector3.Lerp(player.forward, player.right, 0.5f);
+                return player.forward;
+            }
+
+            if (s)
+            {
+                if (a)
+                    return Vector3.Lerp(-player.forward, -player.right, 0.5f);
+                if (d)
+                    return Vector3.Lerp(-player.forward, player.right, 0.5f);
+                return -player.forward;
+            }
+
+            if (d)
+                return player.right;
+
+            if (a)
+                return -player.right;
+
+            throw new NotImplementedException();
         }
 
         void OnCollisionEnter(Collision collision)

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Assets.Scripts.Model.Enemies;
 using Assets.Scripts.Model.Skills;
 using Assets.Scripts.Utils;
 using JetBrains.Annotations;
@@ -20,8 +19,11 @@ namespace Assets.Scripts.Model
         private bool _inFight;
 
         private readonly List<IEquipment> _equipments = new List<IEquipment>();
+        private readonly List<IBuff> _buffs = new List<IBuff>();
 
         public IReadOnlyCollection<IEquipment> Equipments => _equipments;
+
+        public IReadOnlyCollection<IBuff> Buffs => _buffs;
 
         public PlayerCharacteristics Characteristics { get; }
 
@@ -32,65 +34,6 @@ namespace Assets.Scripts.Model
         public IBag Bag { get; }
 
         public static Player Instance { get; } = new Player(new Bag());
-
-        private Player([NotNull] IBag bag)
-        {
-            Bag = bag ?? throw new ArgumentNullException(nameof(bag));
-            Characteristics = new PlayerCharacteristics();
-            _usingSkillCorrector = new SlowWhileUsingSkill(this);
-
-            HP = MaxHP;
-            
-            var fist = new Fist();
-            _weapons.Add(fist);
-            _skills.Add(new SimplePunch(fist));
-
-            _skills.Add(new Throwing());
-
-            //Bag.Add(new Stack(ScalpPrototype.Instance, 15));
-            //Bag.Add(new Stack(UnderwearPrototype.Instance, 15));
-            //Bag.Add(new Stack(HumanToothPrototype.Instance, 150));
-            //Bag.Add(new Stack(PantsPrototype.Instance, 15));
-        }
-
-        public void Update()
-        {
-            _autoHealthIncrease.Do(() =>
-            {
-                ChangeHP(Characteristics.HPRecoveryRatio.Value * MaxHP, this, null);
-            });
-
-            if (DateTime.Now - _lastFightTime > FightExitTime)
-                InFight = false;
-
-            Characteristics.Reset();
-            foreach (var modifier in Characteristics.AllModifiers)
-                if (modifier is IWritableModifier wrModifier)
-                {
-                    _usingSkillCorrector.Affect(wrModifier);
-                    
-                    foreach (var equipment in Equipments)
-                        if (equipment is IModifierCorrector corrector)
-                            corrector.Affect(wrModifier);
-
-                    CheatModifier.Affect(wrModifier);
-                }
-        }
-
-        public void Use(IBagCell cell)
-        {
-            if (cell.Item is IEquipment)
-            {
-                var equipment = Bag.Pull(cell.Item) as IEquipment;
-                _equipments.Add(equipment);
-                return;
-            }
-
-            if (cell.Item is IStack stack)
-                stack.Count -= 1;
-            else
-                throw new NotImplementedException();
-        }
 
         public float HP { get; protected set; }
 
@@ -117,6 +60,59 @@ namespace Assets.Scripts.Model
         public event Action<IFighter> FightBegin;
         public event Action<IFighter> FightEnd;
         public event Action<DamageInfo> DagameReceived;
+
+        private Player([NotNull] IBag bag)
+        {
+            Bag = bag ?? throw new ArgumentNullException(nameof(bag));
+            Characteristics = new PlayerCharacteristics();
+            _usingSkillCorrector = new SlowWhileUsingSkill(this);
+
+            HP = MaxHP;
+
+            var fist = new Fist();
+            _weapons.Add(fist);
+            _skills.Add(new SimplePunch(fist));
+
+            _skills.Add(new Throwing());
+/*
+            Bag.Add(new Stack(ScalpPrototype.Instance, 15));
+            Bag.Add(new Stack(UnderwearPrototype.Instance, 15));
+            Bag.Add(new Stack(HumanToothPrototype.Instance, 150));
+            Bag.Add(new Stack(PantsPrototype.Instance, 15));
+            Bag.Add(new Stack(MeatPrototype.Instance, 5));
+*/
+        }
+
+        public void Update()
+        {
+            _autoHealthIncrease.Do(() =>
+            {
+                ChangeHP(Characteristics.HPRecoveryRatio.Value * MaxHP, this, null);
+            });
+
+            if (DateTime.Now - _lastFightTime > FightExitTime)
+                InFight = false;
+
+            foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
+                _buffs.Remove(buff);
+
+            Characteristics.Reset();
+            foreach (var modifier in Characteristics.AllModifiers)
+                if (modifier is IWritableModifier wrModifier)
+                {
+                    _usingSkillCorrector.Affect(wrModifier);
+
+                    foreach (var equipment in Equipments)
+                        if (equipment is IModifierCorrector corrector)
+                            corrector.Affect(wrModifier);
+
+                    CheatModifier.Affect(wrModifier);
+
+                    foreach (var buff in _buffs)
+                        if (buff is IModifierCorrector corrector)
+                            corrector.Affect(wrModifier);
+                }
+        }
 
         public void ChangeHP(float hpChange, IHealth source, ISkill skill)
         {
@@ -156,7 +152,7 @@ namespace Assets.Scripts.Model
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
 
-            if (!skill.ReadyToUse)
+            if (!skill.ReadyToUse(target, distance))
                 return;
 
             skill.Use(target, this, distance, () =>
@@ -240,6 +236,19 @@ namespace Assets.Scripts.Model
                     if (modifier is IWritableModifier wrModifier)
                         wrModifier.Reset();
             }
+        }
+
+        public void AddBuff([NotNull] IBuff buff)
+        {
+            if (buff == null) throw new ArgumentNullException(nameof(buff));
+            _buffs.Add(buff);
+        }
+
+        public void PutOn([NotNull] IEquipment equipment)
+        {
+            if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+
+            _equipments.Add(equipment);
         }
     }
 

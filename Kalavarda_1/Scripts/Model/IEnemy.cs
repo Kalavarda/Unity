@@ -7,6 +7,10 @@ namespace Assets.Scripts.Model
     public interface IEnemy
     {
         IHealth AggressionTarget { get; }
+
+        IReadOnlyCollection<IBuff> Buffs { get; }
+
+        void AddBuff([NotNull] IBuff buff);
     }
 
     public class EnemyCharacteristics

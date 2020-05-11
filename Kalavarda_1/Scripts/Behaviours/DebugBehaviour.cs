@@ -19,17 +19,23 @@ public class DebugBehaviour : MonoBehaviour
         if (_values.Any())
         {
             const int width = 300;
-            const int height = 200;
+            var height = 30 * _values.Count;
             var rect = new Rect(5, 100, width, height);
             GUI.Box(rect, string.Join(Environment.NewLine, _values.OrderBy(p => p.Key).Select(p => p.Key + ": " + p.Value)));
         }
     }
 
-    public void Show(string key, string value)
+    public void Show(string key, object value)
     {
-        if (_values.ContainsKey(key))
-            _values[key] = value;
+        string str;
+        if (value is string s)
+            str = s;
         else
-            _values.Add(key, value);
+            str = value.ToString();
+
+        if (_values.ContainsKey(key))
+            _values[key] = str;
+        else
+            _values.Add(key, str);
     }
 }

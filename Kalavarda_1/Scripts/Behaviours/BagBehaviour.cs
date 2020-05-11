@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using Assets.Scripts.Model;
+using Assets.Scripts.Model.Skills;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class BagBehaviour : MonoBehaviour
 {
     private readonly IDictionary<int, Button> _buttonPositions = new Dictionary<int, Button>();
+    private readonly Player _player = Player.Instance;
     private readonly IBag _bag = Player.Instance.Bag;
 
     void Start()
@@ -65,7 +67,21 @@ public class BagBehaviour : MonoBehaviour
     {
         var bagCell = _bag.Cells.Skip(cellPos).FirstOrDefault();
         if (bagCell != null)
-            Player.Instance.Use(bagCell);
+        {
+            // TODO: сложновато что-то...
+
+            var thing = bagCell.Item;
+            if (thing is IStack stack)
+                thing = stack.Prototype.CreateInstance();
+            var skill = new UseThing(thing);
+            _player.Use(skill, _player, 0, () =>
+            {
+                if (thing is IStack st)
+                    _bag.Pull(st);
+                else
+                    _bag.Pull(bagCell.Item);
+            });
+        }
     }
 
     void Update()

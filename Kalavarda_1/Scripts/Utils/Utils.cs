@@ -23,5 +23,16 @@ namespace Assets.Scripts.Utils
 
             return distance;
         }
+
+        public static string ToString(TimeSpan duration)
+        {
+            if (duration.TotalSeconds < 90)
+                return Math.Round(duration.TotalSeconds) + " сек";
+
+            if (duration.TotalMinutes < 90)
+                return Math.Round(duration.TotalMinutes) + " мин";
+
+            throw new NotImplementedException();
+        }
     }
 }

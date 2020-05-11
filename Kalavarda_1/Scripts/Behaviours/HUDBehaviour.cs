@@ -22,6 +22,7 @@ public class HUDBehaviour : MonoBehaviour
     public Text TargetText;
 
     public GameObject DpsPanel;
+    public GameObject FightIndicator;
 
     public IHealth Target { get; private set; }
     public GameObject TargetGameObject { get; private set; }
@@ -86,6 +87,8 @@ public class HUDBehaviour : MonoBehaviour
             DpsPanel.SetActive(!DpsPanel.activeSelf);
         if (DpsPanel.activeSelf)
             ShowDps(DpsMeter);
+
+        FightIndicator.SetActive(_player.InFight);
     }
 
     private void ShowTarget()

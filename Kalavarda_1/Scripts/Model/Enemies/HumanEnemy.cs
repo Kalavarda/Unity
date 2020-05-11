@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Assets.Scripts.Model.Skills;
 using Assets.Scripts.Utils;
 using JetBrains.Annotations;
@@ -15,16 +16,21 @@ namespace Assets.Scripts.Model.Enemies
         private DateTime _lastFightTime = DateTime.MinValue;
         private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(20);
         private readonly IModifierCorrector _corrector;
+        private readonly List<IBuff> _buffs = new List<IBuff>();
 
         public EnemyCharacteristics Characteristics { get; }
 
-        public HumanEnemy(float hpRatio, float powerRatio, [NotNull] IReadOnlyCollection<IThing> loot)
+        public HumanEnemy(float hpRatio, float powerRatio, [NotNull] IReadOnlyCollection<IThing> loot, bool isFemale = false)
         {
             _loot = loot ?? throw new ArgumentNullException(nameof(loot));
             Characteristics = new EnemyCharacteristics();
             _corrector = new EnemyCorrector(hpRatio, powerRatio);
-            _skills = new ISkill[] { new SimplePunch(new Fist()) };
             HP = Characteristics.MaxHP.Value;
+
+            var skills = new List<ISkill> { new SimplePunch(new Fist()) };
+            if (isFemale)
+                skills.Add(new Scratch());
+            _skills = skills.ToArray();
         }
 
         public IReadOnlyCollection<IThing> GetLoot()
@@ -55,6 +61,8 @@ namespace Assets.Scripts.Model.Enemies
                     FightEnd?.Invoke(this);
             }
         }
+
+        public IReadOnlyCollection<IBuff> Buffs => _buffs;
 
         public event Action<IFighter> FightBegin;
         public event Action<IFighter> FightEnd;
@@ -99,19 +107,34 @@ namespace Assets.Scripts.Model.Enemies
             if (DateTime.Now - _lastFightTime > FightExitTime)
                 InFight = false;
 
+            foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
+                _buffs.Remove(buff);
+
             Characteristics.Reset();
             foreach (var modifier in Characteristics.AllModifiers)
                 if (modifier is IWritableModifier wrModifier)
+                {
                     _corrector.Affect(wrModifier);
+
+                    foreach (var buff in _buffs)
+                        if (buff is IModifierCorrector corrector)
+                            corrector.Affect(wrModifier);
+                }
         }
 
         public IHealth AggressionTarget { get; private set; }
+
+        public void AddBuff(IBuff buff)
+        {
+            if (buff == null) throw new ArgumentNullException(nameof(buff));
+            _buffs.Add(buff);
+        }
 
         public void Use([NotNull] ISkill skill, IHealth target, float distance, Action onStartUse)
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
 
-            if (!skill.ReadyToUse)
+            if (!skill.ReadyToUse(target, distance))
                 return;
 
             skill.Use(target, this, distance, () =>

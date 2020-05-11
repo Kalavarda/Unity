@@ -121,15 +121,17 @@ public class SpawnerBehaviour : MonoBehaviour
             return new HumanEnemy(1, 1.5f, new IThing[]
             {
                 new Stack(ScalpPrototype.Instance),
-                new Stack(PantsPrototype.Instance)
+                new Stack(PantsPrototype.Instance),
+                new Stack(MeatPrototype.Instance, 4)
             });
 
         if (prefab.name == "Enemy_02") // female
-            return new HumanEnemy(1, 1, new IThing[]
+            return new HumanEnemy(1, 0.666f, new IThing[]
             {
                 new Stack(HumanToothPrototype.Instance, 10),
-                new Stack(UnderwearPrototype.Instance)
-            });
+                new Stack(UnderwearPrototype.Instance),
+                new Stack(MeatPrototype.Instance, 3)
+            }, true);
 
         throw new NotImplementedException();
     }

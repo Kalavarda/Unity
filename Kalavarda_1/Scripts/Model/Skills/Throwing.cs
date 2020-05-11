@@ -1,4 +1,5 @@
 ﻿using System;
+using Assets.Scripts.Model.Buffs;
 using Assets.Scripts.Utils;
 
 namespace Assets.Scripts.Model.Skills
@@ -29,9 +30,17 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
-        public bool ReadyToUse => _target == null && Cooldown == TimeSpan.Zero;
+        public bool ReadyToUse(IHealth target, float distance)
+        {
+            if (_target != null) // значит, ещё предыдущий предмет не долетел
+                return false;
+
+            return Cooldown == TimeSpan.Zero;
+        }
 
         public float CooldownNormalized => (float)Cooldown.TotalSeconds / (float)Interval.TotalSeconds;
+
+        public float MaxDistance => 50f;
 
         public void Use(IHealth target, IHealth source, float distance, Action onStartUse)
         {
@@ -49,8 +58,17 @@ namespace Assets.Scripts.Model.Skills
 
         public void OnOnCollisionEnter(IHealth health, float velocity)
         {
-            var ratio = ((ISkilled)_source).GetSkillPower(this);
+            var ratio = 1f;
+            if (_source is ISkilled skilled)
+                ratio = skilled.GetSkillPower(this);
             health?.ChangeHP(-ratio * velocity, _source, this);
+
+            DebugBehaviour.Instance.Show("velocity", velocity);
+
+            // вешаем кровотечение после попадания
+            if (health is IEnemy enemy)
+                enemy.AddBuff(new Bleeding(_source, health, this, DateTime.Now.AddSeconds(10), ratio * velocity / 10f));
+
             _target = null;
         }
 
@@ -100,6 +118,7 @@ namespace Assets.Scripts.Model.Skills
         }
 
         public bool IsCasting { get; private set; }
+
         public event Action<ICastableSkill> OnBeginCast;
         public event Action<ICastableSkill> OnEndCast;
     }

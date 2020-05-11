@@ -55,7 +55,7 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
         ShowCooldown(skill);
 
-        if (!skill.ReadyToUse)
+        if (skill.Cooldown > TimeSpan.Zero)
             return;
 
         if (PlayerMoveBehaviour.Instance == null)
@@ -108,10 +108,10 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     private void UseSkill(ISkill skill, HUDBehaviour hud, IAnimationManager animManager, PlayerBehaviour playerBehaviour)
     {
-        if (hud == null || hud.TargetGameObject == null)
+        if (hud == null)
             return;
 
-        var distance = Utils.Distance(playerBehaviour.PlayerGameObject, hud.TargetGameObject);
+        var distance = hud.TargetGameObject != null ? Utils.Distance(playerBehaviour.PlayerGameObject, hud.TargetGameObject) : 0;
 
         playerBehaviour.Player.Use(skill, hud.Target, distance, () =>
         {
@@ -120,10 +120,8 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
                 animManager.SetState(animState.Value);
 
             if (skill is IThrowingSkill throwing)
-            {
-                var castableSkill = skill as ICastableSkill;
-                ThrowingBehaviour.Throw(throwing, castableSkill.CastDurationNormalized.Value);
-            }
+                if (skill is ICastableSkill castableSkill && castableSkill.CastDurationNormalized != null)
+                    ThrowingBehaviour.Throw(throwing, castableSkill.CastDurationNormalized.Value);
 
             GetAudioSource(skill)?.Play();
         });
