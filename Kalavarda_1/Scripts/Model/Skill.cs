@@ -19,7 +19,7 @@ namespace Assets.Scripts.Model
 
         bool ReadyToUse(IHealth target, float distance);
 
-        void Use(IHealth target, IHealth source, float distance, Action onStartUse);
+        void Use(IHealth target, float distance, Action onStartUse);
     }
 
     public interface ICastableSkill
@@ -53,6 +53,8 @@ namespace Assets.Scripts.Model
         float GetSkillPower(ISkill skill);
 
         void Use(ISkill skill, IHealth target, float distance, Action onStartUse);
+
+        event Action<ISkilled, ISkill> OnUseSkill;
     }
 
     public interface IThrowingSkill

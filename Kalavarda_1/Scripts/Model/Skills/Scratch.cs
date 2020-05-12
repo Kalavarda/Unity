@@ -1,10 +1,12 @@
 ﻿using System;
 using Assets.Scripts.Model.Buffs;
+using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model.Skills
 {
     public class Scratch: ISkill
     {
+        private readonly ISkilled _source;
         private const float BaseDamage = 0.5f;
         private DateTime _lastUseTime = DateTime.MinValue;
         private static readonly TimeSpan DebuffDuration = TimeSpan.FromSeconds(10);
@@ -36,7 +38,12 @@ namespace Assets.Scripts.Model.Skills
 
         public float MaxDistance => 1.55f;
 
-        public void Use(IHealth target, IHealth source, float distance, Action onStartUse)
+        public Scratch([NotNull] ISkilled source)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+        }
+
+        public void Use(IHealth target, float distance, Action onStartUse)
         {
             if (distance > MaxDistance)
                 return;
@@ -44,10 +51,10 @@ namespace Assets.Scripts.Model.Skills
             if (target is Player player)
             {
                 var ratio = 1f;
-                if (source is ISkilled skilled)
+                if (_source is ISkilled skilled)
                     ratio = skilled.GetSkillPower(this);
 
-                var debuff = new Bleeding(source, target, this, DateTime.Now + DebuffDuration, BaseDamage * ratio);
+                var debuff = new Bleeding(_source, target, this, DateTime.Now + DebuffDuration, BaseDamage * ratio);
                 player.AddBuff(debuff);
                 _lastUseTime = DateTime.Now;
                 return;

@@ -29,7 +29,26 @@ namespace Assets.Scripts.Model.Things
             return new ToothNNecklace();
         }
     }
+/*
+    public class ToothNecklaceRecipePrototype : IThingPrototype
+    {
+        public static ToothNecklaceRecipePrototype Instance { get; } = new ToothNecklaceRecipePrototype();
 
+        public string Name => "Рецепт " + ToothNecklacePrototype.Instance.Name;
+
+        public int BagMaxStackCount => 1;
+
+        public IThing CreateInstance()
+        {
+            return new Recipe(
+                new Stack(ToothNecklacePrototype.Instance), new[]
+                {
+                    new Stack(HumanToothPrototype.Instance, 100),
+                    new Stack(UnderwearPrototype.Instance, 10),
+                });
+        }
+    }
+*/
     public class ScalpNecklace : IThing, IEquipment, IModifierCorrector
     {
         public IThingPrototype Prototype => ScalpNecklacePrototype.Instance;
@@ -56,4 +75,24 @@ namespace Assets.Scripts.Model.Things
             return new ScalpNecklace();
         }
     }
+/*
+    public class ScalpNecklaceRecipePrototype : IThingPrototype
+    {
+        public static ScalpNecklaceRecipePrototype Instance { get; } = new ScalpNecklaceRecipePrototype();
+
+        public string Name => "Рецепт " + ScalpNecklacePrototype.Instance.Name;
+
+        public int BagMaxStackCount => 1;
+
+        public IThing CreateInstance()
+        {
+            return new Recipe(new Stack(ScalpNecklacePrototype.Instance),
+            new[]
+            {
+                new Stack(ScalpPrototype.Instance, 10),
+                new Stack(PantsPrototype.Instance, 10),
+            });
+        }
+    }
+*/
 }

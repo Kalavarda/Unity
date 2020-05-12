@@ -12,7 +12,7 @@ namespace Assets.Scripts.Model
 
         bool IsDied { get; }
 
-        void ChangeHP(float hpChange, IHealth source, ISkill skill);
+        void ChangeHP(float hpChange, ISkilled source, ISkill skill);
 
         event Action<IHealth> Died;
 

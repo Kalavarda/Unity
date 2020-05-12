@@ -19,7 +19,7 @@ public class DebugBehaviour : MonoBehaviour
         if (_values.Any())
         {
             const int width = 300;
-            var height = 30 * _values.Count;
+            var height = 5 + 20 * _values.Count;
             var rect = new Rect(5, 100, width, height);
             GUI.Box(rect, string.Join(Environment.NewLine, _values.OrderBy(p => p.Key).Select(p => p.Key + ": " + p.Value)));
         }

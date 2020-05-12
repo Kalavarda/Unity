@@ -14,9 +14,11 @@ namespace Assets.Scripts.Model.Enemies
         private bool _inFight;
         private readonly ISkill[] _skills;
         private DateTime _lastFightTime = DateTime.MinValue;
-        private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(10);
         private readonly IModifierCorrector _corrector;
         private readonly List<IBuff> _buffs = new List<IBuff>();
+
+        public bool IsFemale { get; }
 
         public EnemyCharacteristics Characteristics { get; }
 
@@ -26,10 +28,11 @@ namespace Assets.Scripts.Model.Enemies
             Characteristics = new EnemyCharacteristics();
             _corrector = new EnemyCorrector(hpRatio, powerRatio);
             HP = Characteristics.MaxHP.Value;
+            IsFemale = isFemale;
 
-            var skills = new List<ISkill> { new SimplePunch(new Fist()) };
+            var skills = new List<ISkill> { new SimplePunch(this, new Fist()) };
             if (isFemale)
-                skills.Add(new Scratch());
+                skills.Add(new Scratch(this));
             _skills = skills.ToArray();
         }
 
@@ -62,20 +65,33 @@ namespace Assets.Scripts.Model.Enemies
             }
         }
 
-        public IReadOnlyCollection<IBuff> Buffs => _buffs;
+        public IReadOnlyCollection<IBuff> Buffs
+        {
+            get
+            {
+                if (IsDied)
+                    return new IBuff[0];
+
+                return _buffs;
+            }
+        }
+
+        public string Name => IsFemale ? "Злая баба" : "Злой мужик";
+
+        public float AggressionDistance => 25;
 
         public event Action<IFighter> FightBegin;
         public event Action<IFighter> FightEnd;
 
         public event Action<DamageInfo> DagameReceived;
 
-        public void ChangeHP(float hpChange, IHealth source, ISkill skill)
+        public void ChangeHP(float hpChange, ISkilled source, ISkill skill)
         {
             if (source != null && source != this && hpChange < 0)
             {
                 _lastFightTime = DateTime.Now;
                 InFight = true;
-                AggressionTarget = source;
+                AggressionTarget = (IHealth)source;
             }
 
             HP = Math.Min(Math.Max(0, HP + hpChange), Characteristics.MaxHP.Value);
@@ -107,22 +123,26 @@ namespace Assets.Scripts.Model.Enemies
             if (DateTime.Now - _lastFightTime > FightExitTime)
                 InFight = false;
 
-            foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
-                _buffs.Remove(buff);
+            if (_buffs.Any())
+                foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
+                    _buffs.Remove(buff);
 
             Characteristics.Reset();
-            foreach (var modifier in Characteristics.AllModifiers)
-                if (modifier is IWritableModifier wrModifier)
-                {
-                    _corrector.Affect(wrModifier);
 
-                    foreach (var buff in _buffs)
-                        if (buff is IModifierCorrector corrector)
-                            corrector.Affect(wrModifier);
-                }
+            ModifyCharacteristics(_corrector);
+            foreach (var buff in _buffs)
+                if (buff is IModifierCorrector corrector)
+                    ModifyCharacteristics(corrector);
         }
 
-        public IHealth AggressionTarget { get; private set; }
+        private void ModifyCharacteristics(IModifierCorrector corrector)
+        {
+            foreach (var modifier in Characteristics.AllModifiers)
+                if (modifier is IWritableModifier wrModifier)
+                    corrector.Affect(wrModifier);
+        }
+
+        public IHealth AggressionTarget { get; set; }
 
         public void AddBuff(IBuff buff)
         {
@@ -137,16 +157,19 @@ namespace Assets.Scripts.Model.Enemies
             if (!skill.ReadyToUse(target, distance))
                 return;
 
-            skill.Use(target, this, distance, () =>
+            skill.Use(target, distance, () =>
             {
                 if (target != null && target != this)
                 {
                     _lastFightTime = DateTime.Now;
                     InFight = true;
                 }
-                onStartUse();
+                onStartUse?.Invoke();
+                OnUseSkill?.Invoke(this, skill);
             });
         }
+
+        public event Action<ISkilled, ISkill> OnUseSkill;
     }
 
     public class HumanToothPrototype : IThingPrototype

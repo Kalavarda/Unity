@@ -6,11 +6,15 @@ namespace Assets.Scripts.Model
 {
     public interface IEnemy
     {
-        IHealth AggressionTarget { get; }
+        IHealth AggressionTarget { get; set; }
 
         IReadOnlyCollection<IBuff> Buffs { get; }
 
+        float AggressionDistance { get; }
+
         void AddBuff([NotNull] IBuff buff);
+
+        string Name { get; }
     }
 
     public class EnemyCharacteristics

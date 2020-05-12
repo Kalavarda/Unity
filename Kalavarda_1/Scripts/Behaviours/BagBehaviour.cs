@@ -73,7 +73,7 @@ public class BagBehaviour : MonoBehaviour
             var thing = bagCell.Item;
             if (thing is IStack stack)
                 thing = stack.Prototype.CreateInstance();
-            var skill = new UseThing(thing);
+            var skill = new UseThing(_player, thing);
             _player.Use(skill, _player, 0, () =>
             {
                 if (thing is IStack st)

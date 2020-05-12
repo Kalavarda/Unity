@@ -6,7 +6,7 @@ namespace Assets.Scripts.Model.Buffs
 {
     public class Bleeding: IBuff, IDotBuff, IModifierCorrector
     {
-        private readonly IHealth _source;
+        private readonly ISkilled _source;
         private readonly IHealth _target;
         private readonly ISkill _skill;
         private readonly float _damage;
@@ -31,7 +31,7 @@ namespace Assets.Scripts.Model.Buffs
 
         public TimeSpan HealthInterval => _limiter.Interval;
 
-        public Bleeding([NotNull] IHealth source, [NotNull] IHealth target, [NotNull] ISkill skill, DateTime endTime, float damage)
+        public Bleeding([NotNull] ISkilled source, [NotNull] IHealth target, [NotNull] ISkill skill, DateTime endTime, float damage)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _target = target ?? throw new ArgumentNullException(nameof(target));

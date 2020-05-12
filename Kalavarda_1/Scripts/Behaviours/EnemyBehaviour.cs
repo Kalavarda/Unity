@@ -8,7 +8,7 @@ public class EnemyBehaviour : MonoBehaviour
 {
     private ISpawned _thisEnemy;
     private DpsMeter _dpsMeter;
-    private static Random _rand = new Random();
+    private static readonly Random _rand = new Random();
     private readonly Player _player = Player.Instance;
 
     void Start()

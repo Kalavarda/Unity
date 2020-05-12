@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using Assets.Scripts.Model;
-using Assets.Scripts.Model.Enemies;
 using Assets.Scripts.Utils;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,6 +19,7 @@ public class HUDBehaviour : MonoBehaviour
     public Image TargetBack;
     public Image TargetTop;
     public Text TargetText;
+    public Text TargetNameText;
 
     public GameObject DpsPanel;
     public GameObject FightIndicator;
@@ -93,21 +93,18 @@ public class HUDBehaviour : MonoBehaviour
 
     private void ShowTarget()
     {
-        if (Target != null)
+        if (Target != null && !Target.IsDied)
         {
             _targetTopRect.sizeDelta =
                 new Vector2(_targetBackRect.rect.width * Target.HPNormalized, _targetBackRect.rect.height);
             _targetTopRect.offsetMin = _targetBackRect.offsetMin;
             TargetText.text = Math.Round(Target.HP) + " / " + Math.Round(Target.MaxHP);
+            if (Target is IEnemy enemy)
+                TargetNameText.text = enemy.Name;
             TargetBack.enabled = true;
             TargetTop.enabled = true;
             TargetText.enabled = true;
-
-            if (Target is HumanEnemy enemy)
-            {
-                DebugBehaviour.Instance.Show("enemy.PowerRatio", Math.Round(enemy.Characteristics.PowerRatio.Value, 2).ToString());
-                DebugBehaviour.Instance.Show("enemy.MaxHP", Math.Round(enemy.Characteristics.MaxHP.Value, 2).ToString());
-            }
+            TargetNameText.enabled = true;
         }
         else
             _targetLimiter.Do(() =>
@@ -115,6 +112,7 @@ public class HUDBehaviour : MonoBehaviour
                 TargetBack.enabled = false;
                 TargetTop.enabled = false;
                 TargetText.enabled = false;
+                TargetNameText.enabled = false;
             });
     }
 

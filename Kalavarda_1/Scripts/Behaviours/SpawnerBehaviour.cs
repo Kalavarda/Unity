@@ -99,6 +99,8 @@ public class SpawnerBehaviour : MonoBehaviour
 
     private void Health_Died(IHealth dead)
     {
+        dead.Died -= Health_Died;
+
         var deadGameObject = AllSpawned.First(p => p.Value == dead).Key;
         if (DestroyIfDeath)
         {

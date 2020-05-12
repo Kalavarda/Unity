@@ -89,7 +89,7 @@ namespace Assets.Scripts.Model
 
     public class DamageInfo
     {
-        public IHealth From { get; }
+        public ISkilled From { get; }
 
         public IHealth To { get; }
 
@@ -97,7 +97,7 @@ namespace Assets.Scripts.Model
 
         public float Damage { get; }
 
-        public DamageInfo([NotNull] IHealth from, [NotNull] IHealth to, [NotNull] ISkill skill, float damage)
+        public DamageInfo([NotNull] ISkilled from, [NotNull] IHealth to, [NotNull] ISkill skill, float damage)
         {
             From = @from ?? throw new ArgumentNullException(nameof(@from));
             To = to ?? throw new ArgumentNullException(nameof(to));

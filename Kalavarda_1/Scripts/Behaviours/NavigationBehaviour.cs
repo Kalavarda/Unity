@@ -9,12 +9,10 @@ using Utils = Assets.Scripts.Utils.Utils;
 
 public class NavigationBehaviour : MonoBehaviour
 {
-    [Tooltip("Радиус агра")]
-    public float MinDistance = 10;
     public bool PursueMode = false;
 
     private NavMeshAgent _agent;
-    private static Random _rand = new Random();
+    private static readonly Random _rand = new Random();
 
     private readonly TimeIntervalLimiter _limiter = new TimeIntervalLimiter(TimeSpan.FromSeconds(0.5));
     private readonly TimeIntervalLimiter _randomMoveLimiter = new TimeIntervalLimiter(TimeSpan.FromMinutes(0.25 + 0.5 * _rand.NextDouble()));
@@ -39,7 +37,7 @@ public class NavigationBehaviour : MonoBehaviour
         });
     }
 
-    private void Navigate(IEnemy enemy, GameObject playerGameObject, Player player)
+    private void Navigate(IEnemy enemy, GameObject playerGameObject, IHealth player)
     {
         if (enemy is IHealth health)
             if (health.IsDied)
@@ -50,8 +48,19 @@ public class NavigationBehaviour : MonoBehaviour
 
         var animMaganer = AnimationManagerBase.CreateOrGet(gameObject);
 
-        var distance = Utils.Distance(gameObject, playerGameObject);
-        if (enemy.AggressionTarget == player || (distance < MinDistance && distance > _agent.stoppingDistance))
+        // агриться, только если не сзади
+        if (enemy.AggressionTarget == null)
+        {
+            var distance = Utils.Distance(gameObject, playerGameObject);
+            if (distance < enemy.AggressionDistance && distance > _agent.stoppingDistance)
+            {
+                var angle = Vector3.Angle(gameObject.transform.forward, playerGameObject.transform.forward);
+                if (angle > 45) // конус 90 градусов сзади
+                    enemy.AggressionTarget = player;
+            }
+        }
+
+        if (enemy.AggressionTarget == player)
         {
             _agent.isStopped = false;
             animMaganer.SetState(AnimationState.GoForward);
@@ -76,7 +85,7 @@ public class NavigationBehaviour : MonoBehaviour
                 _agent.isStopped = false;
                 animMaganer.SetState(AnimationState.GoForward);
 
-                var randomVector = SpawnerBehaviour.GetRandomVector(new Vector3(1, 0, 1)) * (float)_rand.NextDouble() * MinDistance;
+                var randomVector = SpawnerBehaviour.GetRandomVector(new Vector3(1, 0, 1)) * (float)_rand.NextDouble() * enemy.AggressionDistance;
                 animMaganer.SetState(AnimationState.GoForward);
                 var target = gameObject.transform.position + randomVector;
                 _agent.SetDestination(target);

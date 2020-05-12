@@ -15,8 +15,9 @@ public class CraftBehaviour : MonoBehaviour
 
     public static CraftBehaviour Instance { get; private set; }
 
-    private readonly ICraftMachine _craftMachine = new CraftMachine(Player.Instance.Bag, new Recipes1());
+    private ICraftMachine _craftMachine;
     private readonly IDictionary<int, Recipe> _options = new Dictionary<int, Recipe>();
+    private readonly Player _player = Player.Instance;
 
     void Start()
     {
@@ -24,23 +25,37 @@ public class CraftBehaviour : MonoBehaviour
 
         gameObject.SetActive(false);
 
+        _player.Recipes.Changed += InitReipes;
+        InitReipes(_player.Recipes);
+
+        CraftButton.onClick.AddListener(Craft);
+
+        Message.text = string.Empty;
+
+        _craftMachine = new CraftMachine(_player.Bag, _player.Recipes);
+    }
+
+    private void InitReipes(IRecipeCollection recipes)
+    {
         var i = 0;
         _options.Clear();
         Dropdown.options.Clear();
-        foreach (var recipe in _craftMachine.Recipes.OrderBy(r => r.Result.Prototype.Name))
+
+        if (recipes.GetRecipes().Any())
+            foreach (var recipe in recipes.GetRecipes().OrderBy(r => r.Result.Prototype.Name))
+            {
+                Dropdown.options.Add(new Dropdown.OptionData(recipe.Result.Prototype.Name));
+                _options.Add(i, recipe);
+                i++;
+            }
+        else
         {
-            Dropdown.options.Add(new Dropdown.OptionData(recipe.Result.Prototype.Name));
-            _options.Add(i, recipe);
-            i++;
+            Dropdown.options.Add(new Dropdown.OptionData("---------------"));
         }
 
         // hack
         Dropdown.value = -1;
         Dropdown.value = 0;
-
-        CraftButton.onClick.AddListener(Craft);
-
-        Message.text = string.Empty;
     }
 
     private void Craft()

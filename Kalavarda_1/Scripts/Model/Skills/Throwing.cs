@@ -1,6 +1,7 @@
 ﻿using System;
 using Assets.Scripts.Model.Buffs;
 using Assets.Scripts.Utils;
+using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model.Skills
 {
@@ -8,14 +9,16 @@ namespace Assets.Scripts.Model.Skills
     public class Throwing : ISkill, IThrowingSkill, ICastableSkill
     {
         private DateTime _lastUseTime = DateTime.MinValue;
-        private IHealth _target, _source;
+        private IHealth _target;
+        private ISkilled _source;
         private readonly Stone _thing = new Stone();
         private DateTime? _beginCastTime;
         private DateTime? _endCastTime;
 
-        public string Name => "Бросок";
+        public string Name => "Кинуть предмет";
 
-        public string Description => "Бросает " + Thing.Prototype.Name;
+        public string Description =>
+            $"Бросает {Thing.Prototype.Name} с силой {Math.Round(_source.GetSkillPower(this), 1)}";
 
         public TimeSpan Interval => TimeSpan.FromSeconds(10);
 
@@ -42,7 +45,7 @@ namespace Assets.Scripts.Model.Skills
 
         public float MaxDistance => 50f;
 
-        public void Use(IHealth target, IHealth source, float distance, Action onStartUse)
+        public void Use(IHealth target, float distance, Action onStartUse)
         {
             if (Cooldown > TimeSpan.Zero)
                 return;
@@ -52,18 +55,13 @@ namespace Assets.Scripts.Model.Skills
 
             _lastUseTime = DateTime.Now;
             _target = target;
-            _source = source;
             onStartUse?.Invoke();
         }
 
         public void OnOnCollisionEnter(IHealth health, float velocity)
         {
-            var ratio = 1f;
-            if (_source is ISkilled skilled)
-                ratio = skilled.GetSkillPower(this);
+            var ratio = _source.GetSkillPower(this);
             health?.ChangeHP(-ratio * velocity, _source, this);
-
-            DebugBehaviour.Instance.Show("velocity", velocity);
 
             // вешаем кровотечение после попадания
             if (health is IEnemy enemy)
@@ -121,5 +119,10 @@ namespace Assets.Scripts.Model.Skills
 
         public event Action<ICastableSkill> OnBeginCast;
         public event Action<ICastableSkill> OnEndCast;
+
+        public Throwing([NotNull] ISkilled source)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+        }
     }
 }

@@ -9,7 +9,7 @@ namespace Assets.Scripts.Model
 {
     public class Player: IHealth, IArmed, ISkilled, IFighter
     {
-        private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(10);
         private readonly TimeIntervalLimiter _autoHealthIncrease = new TimeIntervalLimiter(TimeSpan.FromSeconds(1));
 
         private DateTime _lastFightTime = DateTime.MinValue;
@@ -23,9 +23,20 @@ namespace Assets.Scripts.Model
 
         public IReadOnlyCollection<IEquipment> Equipments => _equipments;
 
-        public IReadOnlyCollection<IBuff> Buffs => _buffs;
+        public IReadOnlyCollection<IBuff> Buffs
+        {
+            get
+            {
+                if (IsDied)
+                    return new IBuff[0];
+
+                return _buffs;
+            }
+        }
 
         public PlayerCharacteristics Characteristics { get; }
+
+        public IRecipeCollection Recipes { get; }
 
         private readonly Dictionary<Type, float> _skillExperience = new Dictionary<Type, float>();
         private readonly SlowWhileUsingSkill _usingSkillCorrector;
@@ -71,9 +82,12 @@ namespace Assets.Scripts.Model
 
             var fist = new Fist();
             _weapons.Add(fist);
-            _skills.Add(new SimplePunch(fist));
+            _skills.Add(new SimplePunch(this, fist));
 
-            _skills.Add(new Throwing());
+            _skills.Add(new Throwing(this));
+
+            Recipes = new RecipeCollection();
+
 /*
             Bag.Add(new Stack(ScalpPrototype.Instance, 15));
             Bag.Add(new Stack(UnderwearPrototype.Instance, 15));
@@ -93,28 +107,30 @@ namespace Assets.Scripts.Model
             if (DateTime.Now - _lastFightTime > FightExitTime)
                 InFight = false;
 
-            foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
-                _buffs.Remove(buff);
+            if (_buffs.Any())
+                foreach (var buff in _buffs.Where(b => DateTime.Now > b.EndTime).ToArray())
+                    _buffs.Remove(buff);
 
             Characteristics.Reset();
-            foreach (var modifier in Characteristics.AllModifiers)
-                if (modifier is IWritableModifier wrModifier)
-                {
-                    _usingSkillCorrector.Affect(wrModifier);
 
-                    foreach (var equipment in Equipments)
-                        if (equipment is IModifierCorrector corrector)
-                            corrector.Affect(wrModifier);
-
-                    CheatModifier.Affect(wrModifier);
-
-                    foreach (var buff in _buffs)
-                        if (buff is IModifierCorrector corrector)
-                            corrector.Affect(wrModifier);
-                }
+            ModifyCharacteristics(_usingSkillCorrector);
+            ModifyCharacteristics(CheatModifier);
+            foreach (var equipment in Equipments)
+                if (equipment is IModifierCorrector corrector)
+                    ModifyCharacteristics(corrector);
+            foreach (var buff in _buffs)
+                if (buff is IModifierCorrector corrector)
+                    ModifyCharacteristics(corrector);
         }
 
-        public void ChangeHP(float hpChange, IHealth source, ISkill skill)
+        private void ModifyCharacteristics(IModifierCorrector corrector)
+        {
+            foreach (var modifier in Characteristics.AllModifiers)
+                if (modifier is IWritableModifier wrModifier)
+                    corrector.Affect(wrModifier);
+        }
+
+        public void ChangeHP(float hpChange, ISkilled source, ISkill skill)
         {
             if (source != null && source != this && hpChange < 0)
             {
@@ -122,7 +138,10 @@ namespace Assets.Scripts.Model
                 _lastFightTime = DateTime.Now;
             }
 
-            HP = Math.Min(Math.Max(0, HP + hpChange), MaxHP);
+            var hp = Math.Min(Math.Max(0, HP + hpChange), MaxHP);
+            if (hp < 101)
+                hp.Equals(null);
+            HP = hp;
             if (source != null && skill != null && hpChange < 0)
                 DagameReceived?.Invoke(new DamageInfo(source, this, skill, -hpChange));
 
@@ -155,7 +174,7 @@ namespace Assets.Scripts.Model
             if (!skill.ReadyToUse(target, distance))
                 return;
 
-            skill.Use(target, this, distance, () =>
+            skill.Use(target, distance, () =>
             {
                 if (target != null && target != this && target is IEnemy)
                 {
@@ -168,9 +187,12 @@ namespace Assets.Scripts.Model
                     _skillExperience.Add(skillType, 1);
                 _skillExperience[skillType] += Characteristics.SkillExpirienceIncrease.Value;
 
-                onStartUse();
+                onStartUse?.Invoke();
+                OnUseSkill?.Invoke(this, skill);
             });
         }
+
+        public event Action<ISkilled, ISkill> OnUseSkill;
 
         public void CollectLoot([NotNull] ILoot loot)
         {

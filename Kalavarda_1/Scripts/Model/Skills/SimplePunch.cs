@@ -1,5 +1,4 @@
 ﻿using System;
-using Assets.Scripts.Model.Buffs;
 using Assets.Scripts.Utils;
 using JetBrains.Annotations;
 
@@ -9,6 +8,7 @@ namespace Assets.Scripts.Model.Skills
     [Animation(AnimationState.SimplePunch)]
     public class SimplePunch : ISkill
     {
+        private readonly ISkilled _source;
         private readonly IWeapon _weapon;
         private DateTime _lastUseTime = DateTime.MinValue;
 
@@ -18,14 +18,14 @@ namespace Assets.Scripts.Model.Skills
         {
             get
             {
-                if (_weapon is Fist)
-                    return "Бьёт кулаком";
+                if (_weapon is Fist) // костыльненько
+                    return $"Бьёт кулаком с силой {Math.Round(_source.GetSkillPower(this), 1)}";
                 else
-                    throw new NotImplementedException();
+                    return $"Используя {_weapon}, наносит удар с силой {Math.Round(_source.GetSkillPower(this), 1)}";
             }
         }
 
-        public TimeSpan Interval { get; }
+        public TimeSpan Interval => TimeSpan.FromSeconds(1);
 
         public TimeSpan Cooldown
         {
@@ -47,13 +47,13 @@ namespace Assets.Scripts.Model.Skills
 
         public float MaxDistance => _weapon.MaxDistance;
 
-        public SimplePunch([NotNull] IWeapon weapon)
+        public SimplePunch([NotNull] ISkilled source, [NotNull] IWeapon weapon)
         {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
             _weapon = weapon ?? throw new ArgumentNullException(nameof(weapon));
-            Interval = TimeSpan.FromSeconds(1);
         }
 
-        public void Use(IHealth target, IHealth source, float distance, Action onStartUse)
+        public void Use(IHealth target, float distance, Action onStartUse)
         {
             if (!ReadyToUse(target, distance))
                 return;
@@ -61,11 +61,9 @@ namespace Assets.Scripts.Model.Skills
             _lastUseTime = DateTime.Now;
             onStartUse?.Invoke();
 
-            var ratio = 1f;
-            if (source is ISkilled skilled)
-                ratio = skilled.GetSkillPower(this);
+            var ratio = _source.GetSkillPower(this);
 
-            target.ChangeHP(-ratio * _weapon.Power, source, this);
+            target.ChangeHP(-ratio * _weapon.Power, _source, this);
         }
     }
 }

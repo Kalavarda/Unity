@@ -1,20 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using Assets.Scripts.Model.Enemies;
-using Assets.Scripts.Model.Things;
 using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model
 {
     public interface ICraftMachine
     {
-        /// <summary>
-        /// Доступные рецепты
-        /// </summary>
-        IReadOnlyCollection<Recipe> Recipes { get; }
-
         /// <summary>
         /// Скрафтить
         /// </summary>
@@ -34,7 +25,7 @@ namespace Assets.Scripts.Model
         }
     }
 
-    public class Recipe
+    public class Recipe: IThing
     {
         public IStack Result { get; }
 
@@ -44,14 +35,41 @@ namespace Assets.Scripts.Model
         {
             Result = result ?? throw new ArgumentNullException(nameof(result));
             SourceItems = sourceItems ?? throw new ArgumentNullException(nameof(sourceItems));
+            Prototype = new RecipePrototype(result.Prototype);
+        }
+
+        public IThingPrototype Prototype { get; }
+    }
+
+    public class RecipePrototype : IThingPrototype
+    {
+        private readonly IThingPrototype _targetPrototype;
+
+        public string Name => "Рецепт " + _targetPrototype.Name;
+
+        public int BagMaxStackCount => 1;
+
+        public IThing CreateInstance()
+        {
+            throw new NotImplementedException();
+        }
+
+        public RecipePrototype([NotNull] IThingPrototype targetPrototype)
+        {
+            _targetPrototype = targetPrototype ?? throw new ArgumentNullException(nameof(targetPrototype));
         }
     }
 
-    public interface IRecipeSource
+
+    public interface IRecipeCollection
     {
         /// <summary>
         /// Возвращает доступные рецепты
         /// </summary>
         IReadOnlyCollection<Recipe> GetRecipes();
+
+        void Add([NotNull] Recipe recipe);
+
+        event Action<IRecipeCollection> Changed;
     }
 }

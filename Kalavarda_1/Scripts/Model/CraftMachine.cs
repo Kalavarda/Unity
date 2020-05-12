@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using Assets.Scripts.Model.Enemies;
-using Assets.Scripts.Model.Things;
 using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model
@@ -16,12 +14,12 @@ namespace Assets.Scripts.Model
 
         private readonly IChanceCalculator _chanceCalculator = new Chance();
 
-        public CraftMachine([NotNull] IBag bag, [NotNull] IRecipeSource recipeSource)
+        public CraftMachine([NotNull] IBag bag, [NotNull] IRecipeCollection recipeCollection)
         {
-            if (recipeSource == null) throw new ArgumentNullException(nameof(recipeSource));
+            if (recipeCollection == null) throw new ArgumentNullException(nameof(recipeCollection));
             _bag = bag ?? throw new ArgumentNullException(nameof(bag));
 
-            Recipes = recipeSource.GetRecipes();
+            Recipes = recipeCollection.GetRecipes();
         }
 
         public CraftResult Craft(Recipe recipe, float chance)
@@ -68,28 +66,22 @@ namespace Assets.Scripts.Model
         }
     }
 
-    public class Recipes1 : IRecipeSource
+    public class RecipeCollection : IRecipeCollection
     {
+        private readonly List<Recipe> _recipes = new List<Recipe>();
+
         public IReadOnlyCollection<Recipe> GetRecipes()
         {
-            return new[]
-            {
-                new Recipe(new Stack(AxePrototype.Instance), new []
-                {
-                    new Stack(StickPrototype.Instance),
-                    new Stack(StonePrototype.Instance),
-                }),
-                new Recipe(new Stack(ScalpNecklacePrototype.Instance), new []
-                {
-                    new Stack(ScalpPrototype.Instance, 10),
-                    new Stack(PantsPrototype.Instance, 10),
-                }),
-                new Recipe(new Stack(ToothNecklacePrototype.Instance), new []
-                {
-                    new Stack(UnderwearPrototype.Instance, 10),
-                    new Stack(HumanToothPrototype.Instance, 100),
-                }),
-            };
+            return _recipes;
         }
+
+        public void Add([NotNull] Recipe recipe)
+        {
+            if (recipe == null) throw new ArgumentNullException(nameof(recipe));
+            _recipes.Add(recipe);
+            Changed?.Invoke(this);
+        }
+
+        public event Action<IRecipeCollection> Changed;
     }
 }

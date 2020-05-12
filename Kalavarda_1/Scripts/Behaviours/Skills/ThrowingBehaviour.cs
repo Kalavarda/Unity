@@ -23,7 +23,7 @@ namespace Assets.Scripts.Behaviours.Skills
             if (skill == null) throw new ArgumentNullException(nameof(skill));
             if (throwedObject == null) throw new ArgumentNullException(nameof(throwedObject));
 
-            if (_timer == null) // это чтобы удалять объекты, ни ч чем не столкнувшиеся
+            if (_timer == null) // это чтобы удалять объекты, ни с чем не столкнувшиеся
                 _timer = new Timer(OnTimer, null, MaxThrowedLifetime, TimeSpan.FromSeconds(1));
 
             _throwedObjects.Add(new Tuple<IThrowingSkill, GameObject, DateTime>(skill, throwedObject, DateTime.Now));
