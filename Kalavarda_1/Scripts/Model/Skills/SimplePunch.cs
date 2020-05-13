@@ -19,9 +19,9 @@ namespace Assets.Scripts.Model.Skills
             get
             {
                 if (_weapon is Fist) // костыльненько
-                    return $"Бьёт кулаком с силой {Math.Round(_source.GetSkillPower(this), 1)}";
+                    return $"Бьёт кулаком с силой {Math.Round(_source.GetSkillPower(this, SkillContext.Empty), 1)}";
                 else
-                    return $"Используя {_weapon}, наносит удар с силой {Math.Round(_source.GetSkillPower(this), 1)}";
+                    return $"Используя {_weapon}, наносит удар с силой {Math.Round(_source.GetSkillPower(this, SkillContext.Empty), 1)}";
             }
         }
 
@@ -38,9 +38,9 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
-        public bool ReadyToUse(IHealth target, float distance)
+        public bool ReadyToUse(SkillContext context)
         {
-            return Cooldown == TimeSpan.Zero && target != null && distance < MaxDistance;
+            return Cooldown == TimeSpan.Zero && context.Target != null && context.Distance < MaxDistance;
         }
 
         public float CooldownNormalized => (float)Cooldown.TotalSeconds / (float)Interval.TotalSeconds;
@@ -53,17 +53,17 @@ namespace Assets.Scripts.Model.Skills
             _weapon = weapon ?? throw new ArgumentNullException(nameof(weapon));
         }
 
-        public void Use(IHealth target, float distance, Action onStartUse)
+        public void Use(SkillContext context, Action onStartUse)
         {
-            if (!ReadyToUse(target, distance))
+            if (!ReadyToUse(context))
                 return;
 
             _lastUseTime = DateTime.Now;
             onStartUse?.Invoke();
 
-            var ratio = _source.GetSkillPower(this);
+            var ratio = _source.GetSkillPower(this, context);
 
-            target.ChangeHP(-ratio * _weapon.Power, _source, this);
+            context.Target.ChangeHP(-ratio * _weapon.Power, _source, this);
         }
     }
 }

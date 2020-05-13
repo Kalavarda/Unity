@@ -17,6 +17,7 @@ namespace Assets.Scripts.Model.Enemies
         private static readonly TimeSpan FightExitTime = TimeSpan.FromSeconds(10);
         private readonly IModifierCorrector _corrector;
         private readonly List<IBuff> _buffs = new List<IBuff>();
+        private readonly DefenceCorrector _defenceCorrector;
 
         public bool IsFemale { get; }
 
@@ -27,6 +28,7 @@ namespace Assets.Scripts.Model.Enemies
             _loot = loot ?? throw new ArgumentNullException(nameof(loot));
             Characteristics = new EnemyCharacteristics();
             _corrector = new EnemyCorrector(hpRatio, powerRatio);
+            _defenceCorrector = new DefenceCorrector(this);
             HP = Characteristics.MaxHP.Value;
             IsFemale = isFemale;
 
@@ -94,6 +96,9 @@ namespace Assets.Scripts.Model.Enemies
                 AggressionTarget = (IHealth)source;
             }
 
+            if (hpChange < 0)
+                hpChange /= Characteristics.DefenceRatio.Value;
+
             HP = Math.Min(Math.Max(0, HP + hpChange), Characteristics.MaxHP.Value);
             if (source != null && skill != null && hpChange < 0)
                 DagameReceived?.Invoke(new DamageInfo(source, this, skill, -hpChange));
@@ -104,11 +109,12 @@ namespace Assets.Scripts.Model.Enemies
 
         public event Action<IHealth> Died;
 
-        public float GetSkillPower(ISkill skill)
+        public float GetSkillPower(ISkill skill, SkillContext context)
         {
             var r = Characteristics.PowerRatio.Value;
 
             r *= 0.5f + HPNormalized / 2;
+            r *= 2 - context.Angle; // х2 при ударе в спину
 
             return r;
         }
@@ -130,6 +136,7 @@ namespace Assets.Scripts.Model.Enemies
             Characteristics.Reset();
 
             ModifyCharacteristics(_corrector);
+            ModifyCharacteristics(_defenceCorrector);
             foreach (var buff in _buffs)
                 if (buff is IModifierCorrector corrector)
                     ModifyCharacteristics(corrector);
@@ -150,26 +157,27 @@ namespace Assets.Scripts.Model.Enemies
             _buffs.Add(buff);
         }
 
-        public void Use([NotNull] ISkill skill, IHealth target, float distance, Action onStartUse)
+        public void Use([NotNull] ISkill skill, SkillContext context, Action onStartUse)
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
 
-            if (!skill.ReadyToUse(target, distance))
+            if (!skill.ReadyToUse(context))
                 return;
 
-            skill.Use(target, distance, () =>
+            BeforeUseSkill?.Invoke(this, skill);
+
+            skill.Use(context, () =>
             {
-                if (target != null && target != this)
+                if (context.Target != null && context.Target != this)
                 {
                     _lastFightTime = DateTime.Now;
                     InFight = true;
                 }
                 onStartUse?.Invoke();
-                OnUseSkill?.Invoke(this, skill);
             });
         }
 
-        public event Action<ISkilled, ISkill> OnUseSkill;
+        public event Action<ISkilled, ISkill> BeforeUseSkill;
     }
 
     public class HumanToothPrototype : IThingPrototype

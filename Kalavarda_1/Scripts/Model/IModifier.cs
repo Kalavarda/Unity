@@ -1,4 +1,5 @@
 ﻿using System;
+using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model
 {
@@ -50,6 +51,27 @@ namespace Assets.Scripts.Model
             Name = name;
             _startValue = startValue;
             Reset();
+        }
+
+        public override string ToString()
+        {
+            return $"{Name} = {Value}";
+        }
+    }
+
+    public class DefenceCorrector : IModifierCorrector
+    {
+        private readonly IHealth _health;
+
+        public DefenceCorrector([NotNull] IHealth health)
+        {
+            _health = health ?? throw new ArgumentNullException(nameof(health));
+        }
+
+        public void Affect([NotNull] IWritableModifier modifier)
+        {
+            if (modifier.Id == EnemyCharacteristics.DefenceRatioId || modifier.Id == Player.PlayerCharacteristics.DefenceRatioId)
+                modifier.Value *= 0.5f + 0.5f * _health.HPNormalized;
         }
     }
 }

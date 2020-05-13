@@ -1,15 +1,18 @@
 ﻿using System;
 using Assets.Scripts.Model.Buffs;
+using Assets.Scripts.Model.Things;
 using JetBrains.Annotations;
 
 namespace Assets.Scripts.Model.Skills
 {
-    public class UseThing: ISkill
+    public class UseThing: ISkill, ICastableSkill
     {
         private readonly ISkilled _source;
+        private SkillContext _skillContext;
         private DateTime _lastUseTime = DateTime.MinValue;
+        private DateTime? _startCastTime;
 
-        public IThing Thing { get; }
+        public IThing Thing { get; set; }
 
         public string Name => "Использовать " + Thing.Prototype.Name;
 
@@ -32,19 +35,21 @@ namespace Assets.Scripts.Model.Skills
 
         public float MaxDistance => 1.55f;
 
-        public UseThing([NotNull] ISkilled source, [NotNull] IThing thing)
+        public UseThing([NotNull] ISkilled source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
-            Thing = thing ?? throw new ArgumentNullException(nameof(thing));
         }
 
-        public bool ReadyToUse(IHealth target, float distance)
+        public bool ReadyToUse(SkillContext context)
         {
-            var baseConditions = Cooldown == TimeSpan.Zero && target != null && distance < MaxDistance;
+            if (CastingInProgress)
+                return false;
+
+            var baseConditions = Cooldown == TimeSpan.Zero && context.Target != null && context.Distance < MaxDistance;
             if (!baseConditions)
                 return false;
 
-            if (target is IFighter fighter)
+            if (context.Target is IFighter fighter)
                 if (fighter.InFight)
                 {
                     if (Thing.Prototype == MeatPrototype.Instance)
@@ -54,11 +59,19 @@ namespace Assets.Scripts.Model.Skills
             return true;
         }
 
-        public void Use(IHealth target, float distance, Action onStartUse)
+        public void Use(SkillContext context, Action onStartUse)
         {
-            if (!ReadyToUse(target, distance))
+            if (!ReadyToUse(context))
                 return;
 
+            _skillContext = context;
+
+            _startCastTime = DateTime.Now;
+            OnBeginCast?.Invoke(this);
+        }
+
+        private void UseThing2(IHealth target, Action onStartUse)
+        {
             if (Thing is IEquipment equipment)
                 if (target is Player player)
                 {
@@ -74,7 +87,7 @@ namespace Assets.Scripts.Model.Skills
                 if (stack.Prototype == MeatPrototype.Instance)
                     if (target is Player player)
                     {
-                        var ratio = player.GetSkillPower(this);
+                        var ratio = player.GetSkillPower(this, _skillContext);
                         var buff = new HealthRecovery(_source, target, this, DateTime.Now.AddSeconds(10), 2 * ratio);
                         player.AddBuff(buff);
                     }
@@ -108,5 +121,47 @@ namespace Assets.Scripts.Model.Skills
 
             throw new NotImplementedException();
         }
+
+        public event Action<ICastableSkill> OnBeginCast;
+
+        public bool CastingInProgress => _startCastTime != null;
+
+        public event Action<ICastableSkill> OnEndCast;
+        
+        public TimeSpan CastDuration
+        {
+            get
+            {
+                if (Thing is Chest)
+                    return TimeSpan.FromSeconds(3);
+
+                if (Thing?.Prototype is MeatPrototype)
+                    return TimeSpan.FromSeconds(5);
+
+                return TimeSpan.FromSeconds(1);
+            }
+        }
+
+        private TimeSpan CastedDuration
+        {
+            get
+            {
+                if (_startCastTime == null)
+                    throw new NotImplementedException();
+
+                var elapsed = DateTime.Now - _startCastTime.Value;
+                if (elapsed >= CastDuration)
+                {
+                    UseThing2(_skillContext.Target, null); // TODO: обратный вызов - костыльно, заменить на событие
+
+                    _startCastTime = null;
+                    OnEndCast?.Invoke(this);
+                }
+
+                return elapsed;
+            }
+        }
+
+        public float CastedDurationNormalized => (float)CastedDuration.TotalSeconds / (float)CastDuration.TotalSeconds;
     }
 }

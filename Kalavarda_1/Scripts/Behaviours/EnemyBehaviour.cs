@@ -31,15 +31,24 @@ public class EnemyBehaviour : MonoBehaviour
 
         if (_thisEnemy is ISkilled skilled)
         {
-            var distance = Utils.Distance(PlayerBehaviour.Instance.PlayerGameObject, gameObject);
+            var playerGameObject = PlayerBehaviour.Instance.PlayerGameObject;
 
-            var availableSkills = skilled.Skills.Where(sk => sk.ReadyToUse(_player, distance)).ToArray();
+            var distance = Utils.Distance(playerGameObject, gameObject);
+
+            // TODO: не глючит только если моб лицом к player'у
+            var angle = Vector3.Angle(gameObject.transform.forward, playerGameObject.transform.forward) / 180;
+
+            var skillContext = new SkillContext(_player, distance, angle);
+
+            var availableSkills = skilled.Skills.Where(sk => sk.ReadyToUse(skillContext)).ToArray();
             if (availableSkills.Any())
             {
+                // поворачиваем моба в сторону player'а
+                gameObject.transform.LookAt(playerGameObject.transform);
+
                 var skill = availableSkills[_rand.Next(availableSkills.Length)];
                 if (skill != null)
-                {
-                    skilled.Use(skill, _player, distance, () =>
+                    skilled.Use(skill, skillContext, () =>
                     {
                         var animState = AnimationAttribute.GetAnimationState(skill);
                         if (animState != null)
@@ -47,7 +56,6 @@ public class EnemyBehaviour : MonoBehaviour
 
                         SkillBehaviour.GetAudioSource(skill)?.Play();
                     });
-                }
             }
         }
     }

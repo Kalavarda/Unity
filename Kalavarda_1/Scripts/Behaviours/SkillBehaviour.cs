@@ -2,8 +2,8 @@
 using System.Linq;
 using Assets.Scripts;
 using Assets.Scripts.Behaviours;
-using Assets.Scripts.Behaviours.Skills;
 using Assets.Scripts.Model;
+using Assets.Scripts.Model.Skills;
 using Assets.Scripts.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -25,8 +25,7 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
     private RectTransform _cooldownPanel;
     private RectTransform _backPanel;
 
-    private DateTime _startTime = DateTime.MinValue;
-    private bool _progressStarted;
+    private readonly Player _player = Player.Instance;
 
     void Start()
     {
@@ -46,10 +45,11 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     void Update()
     {
-        var skill = GetSkill(Player.Instance, SkillKey);
+        var skill = GetSkill(_player, SkillKey);
         if (skill == null)
         {
             _buttonText.text = string.Empty;
+            _cooldownPanel.gameObject.SetActive(false);
             return;
         }
 
@@ -64,46 +64,8 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         var animManager = PlayerMoveBehaviour.Instance.AnimationManager;
         SkillProgressNormalized = 0;
 
-        if (skill is ICastableSkill castable)
-            UseAfterProgress(castable, animManager);
-        else
-            if (Input.GetKeyDown(SkillKey))
-                UseSkill(skill, HUDBehaviour.Instance, animManager, PlayerBehaviour.Instance);
-    }
-
-    private void UseAfterProgress(ICastableSkill castableSkill, IAnimationManager animManager)
-    {
         if (Input.GetKeyDown(SkillKey))
-        {
-            _progressStarted = true;
-            _startTime = DateTime.Now;
-            castableSkill.BeginCast();
-        }
-
-        if (_progressStarted && Input.GetKey(SkillKey))
-        {
-            var _pressElapsed = DateTime.Now - _startTime;
-            SkillProgressNormalized = (float)_pressElapsed.TotalSeconds / (float)castableSkill.MaxCastDuration.TotalSeconds;
-            if (_pressElapsed >= castableSkill.MaxCastDuration)
-            {
-                castableSkill.EndCast();
-                UseSkill(castableSkill as ISkill, HUDBehaviour.Instance, animManager, PlayerBehaviour.Instance);
-                _progressStarted = false;
-                SkillProgressNormalized = 0;
-            }
-        }
-
-        if (_progressStarted && Input.GetKeyUp(SkillKey))
-        {
-            _progressStarted = false;
-            var _pressElapsed = DateTime.Now - _startTime;
-            if (_pressElapsed >= castableSkill.MinCastDuration)
-            {
-                castableSkill.EndCast();
-                UseSkill(castableSkill as ISkill, HUDBehaviour.Instance, animManager, PlayerBehaviour.Instance);
-                SkillProgressNormalized = 0;
-            }
-        }
+            UseSkill(skill, HUDBehaviour.Instance, animManager, PlayerBehaviour.Instance);
     }
 
     private void UseSkill(ISkill skill, HUDBehaviour hud, IAnimationManager animManager, PlayerBehaviour playerBehaviour)
@@ -111,17 +73,21 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         if (hud == null)
             return;
 
-        var distance = hud.TargetGameObject != null ? Utils.Distance(playerBehaviour.PlayerGameObject, hud.TargetGameObject) : 0;
+        var distance = hud.TargetGameObject != null
+            ? Utils.Distance(playerBehaviour.PlayerGameObject, hud.TargetGameObject)
+            : 0;
 
-        playerBehaviour.Player.Use(skill, hud.Target, distance, () =>
+        var angle = hud.TargetGameObject != null // TODO: не всегда правильно считается
+            ? Vector3.Angle(playerBehaviour.PlayerGameObject.transform.forward, hud.TargetGameObject.transform.forward) / 180
+            : 0;
+
+        var skillContext = new SkillContext(hud.Target, distance, angle);
+
+        playerBehaviour.Player.Use(skill, skillContext, () =>
         {
             var animState = AnimationAttribute.GetAnimationState(skill);
             if (animState != null)
                 animManager.SetState(animState.Value);
-
-            if (skill is IThrowingSkill throwing)
-                if (skill is ICastableSkill castableSkill && castableSkill.CastDurationNormalized != null)
-                    ThrowingBehaviour.Throw(throwing, castableSkill.CastDurationNormalized.Value);
 
             GetAudioSource(skill)?.Play();
         });
@@ -131,6 +97,8 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
     {
         if (skill.Cooldown > TimeSpan.Zero)
         {
+            _cooldownPanel.gameObject.SetActive(true);
+
             _cooldownPanel.offsetMin = new Vector2(_backPanel.offsetMin.x, _backPanel.offsetMin.y);
             _cooldownPanel.sizeDelta =
                 new Vector2(_backPanel.sizeDelta.x, _backPanel.sizeDelta.y * skill.CooldownNormalized);
@@ -157,7 +125,7 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        var skill = GetSkill(Player.Instance, SkillKey);
+        var skill = GetSkill(_player, SkillKey);
         if (skill != null)
         {
             SetTooltipValues(skill);
@@ -179,12 +147,13 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     private static ISkill GetSkill(ISkilled skilled, KeyCode key)
     {
+        var skills = skilled.Skills.Where(sk => !(sk is UseThing));
         switch (key)
         {
             case KeyCode.Alpha1:
-                return skilled.Skills.FirstOrDefault();
+                return skills.Skip(0).FirstOrDefault();
             case KeyCode.Alpha2:
-                return skilled.Skills.Skip(1).FirstOrDefault();
+                return skills.Skip(1).FirstOrDefault();
             default:
                 return null;
         }

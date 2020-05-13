@@ -13,9 +13,6 @@ public class HUDBehaviour : MonoBehaviour
     public Image HPTop;
     public Text HPText;
 
-    public Image ProgressBack;
-    public Image ProgressTop;
-
     public Image TargetBack;
     public Image TargetTop;
     public Text TargetText;
@@ -31,7 +28,6 @@ public class HUDBehaviour : MonoBehaviour
 
     private Player _player;
     private RectTransform _hpBackRect, _hpTopRect;
-    private RectTransform _progressBackRect, _progressTopRect;
     private Image _hpTopImage;
 
     private RectTransform _targetBackRect, _targetTopRect;
@@ -47,9 +43,6 @@ public class HUDBehaviour : MonoBehaviour
         _hpBackRect = HPBack.GetComponent<RectTransform>();
         _hpTopRect = HPTop.GetComponent<RectTransform>();
         _hpTopImage = HPTop.GetComponent<Image>();
-
-        _progressBackRect = ProgressBack.GetComponent<RectTransform>();
-        _progressTopRect = ProgressTop.GetComponent<RectTransform>();
 
         _targetBackRect = TargetBack.GetComponent<RectTransform>();
         _targetTopRect = TargetTop.GetComponent<RectTransform>();
@@ -78,10 +71,6 @@ public class HUDBehaviour : MonoBehaviour
 
         // Target
         ShowTarget();
-
-        // Progress
-        if (SkillBehaviour.Instance != null)
-            ShowSkillProgress(SkillBehaviour.Instance);
 
         if (Input.GetKeyDown(KeyCode.P))
             DpsPanel.SetActive(!DpsPanel.activeSelf);
@@ -147,22 +136,5 @@ public class HUDBehaviour : MonoBehaviour
         textDetails.text = string.Join(Environment.NewLine, detailedDps
             .OrderByDescending(p => p.Value)
             .Select(p => p.Key.Name + " : " + Math.Round(p.Value, 1)));
-    }
-
-    private void ShowSkillProgress(SkillBehaviour skillBehaviour)
-    {
-        if (skillBehaviour.SkillProgressNormalized > 0)
-        {
-            ProgressBack.gameObject.SetActive(true);
-            ProgressTop.gameObject.SetActive(true);
-
-            _progressTopRect.sizeDelta = new Vector2(_progressBackRect.rect.width * skillBehaviour.SkillProgressNormalized, _progressBackRect.rect.height);
-            _progressTopRect.offsetMin = _progressBackRect.offsetMin;
-        }
-        else
-        {
-            ProgressBack.gameObject.SetActive(false);
-            ProgressTop.gameObject.SetActive(false);
-        }
     }
 }

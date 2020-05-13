@@ -11,13 +11,27 @@ public class BagBehaviour : MonoBehaviour
     private readonly IDictionary<int, Button> _buttonPositions = new Dictionary<int, Button>();
     private readonly Player _player = Player.Instance;
     private readonly IBag _bag = Player.Instance.Bag;
+    private UseThing _useThingSkill;
+    private IBagCell _lastClickedCell;
 
     void Start()
     {
+        _useThingSkill = _player.Skills.OfType<UseThing>().First();
+
         Init();
 
         _bag.OnCellAdded += Bag_OnCellAddOrRemove;
         _bag.OnCellRemoved += Bag_OnCellAddOrRemove;
+    }
+
+    private void OnUseThingEndCast(ICastableSkill castableSkill)
+    {
+        _useThingSkill.OnEndCast -= OnUseThingEndCast;
+
+        if (_useThingSkill.Thing is IStack st)
+            _bag.Pull(st);
+        else
+            _bag.Pull(_lastClickedCell.Item);
     }
 
     private void Bag_OnCellAddOrRemove(IBag bag, IBagCell cell)
@@ -65,22 +79,23 @@ public class BagBehaviour : MonoBehaviour
 
     private void OnButtonClick(int cellPos)
     {
+        var skillContext = new SkillContext(_player, 0, 0);
+
+        if (!_useThingSkill.ReadyToUse(skillContext))
+            return;
+
         var bagCell = _bag.Cells.Skip(cellPos).FirstOrDefault();
         if (bagCell != null)
         {
-            // TODO: сложновато что-то...
-
             var thing = bagCell.Item;
             if (thing is IStack stack)
                 thing = stack.Prototype.CreateInstance();
-            var skill = new UseThing(_player, thing);
-            _player.Use(skill, _player, 0, () =>
-            {
-                if (thing is IStack st)
-                    _bag.Pull(st);
-                else
-                    _bag.Pull(bagCell.Item);
-            });
+
+            _lastClickedCell = bagCell;
+            _useThingSkill.OnEndCast += OnUseThingEndCast;
+
+            _useThingSkill.Thing = thing;
+            _player.Use(_useThingSkill, skillContext);
         }
     }
 

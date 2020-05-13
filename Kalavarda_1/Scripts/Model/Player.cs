@@ -21,6 +21,12 @@ namespace Assets.Scripts.Model
         private readonly List<IEquipment> _equipments = new List<IEquipment>();
         private readonly List<IBuff> _buffs = new List<IBuff>();
 
+        private readonly Dictionary<Type, float> _skillExperience = new Dictionary<Type, float>();
+        private readonly SlowWhileUsingSkill _usingSkillCorrector;
+        private readonly DefenceCorrector _defenceCorrector;
+
+        public Cheat CheatModifier { get; } = new Cheat();
+
         public IReadOnlyCollection<IEquipment> Equipments => _equipments;
 
         public IReadOnlyCollection<IBuff> Buffs
@@ -37,10 +43,6 @@ namespace Assets.Scripts.Model
         public PlayerCharacteristics Characteristics { get; }
 
         public IRecipeCollection Recipes { get; }
-
-        private readonly Dictionary<Type, float> _skillExperience = new Dictionary<Type, float>();
-        private readonly SlowWhileUsingSkill _usingSkillCorrector;
-        internal readonly Cheat CheatModifier = new Cheat();
 
         public IBag Bag { get; }
 
@@ -83,8 +85,7 @@ namespace Assets.Scripts.Model
             var fist = new Fist();
             _weapons.Add(fist);
             _skills.Add(new SimplePunch(this, fist));
-
-            _skills.Add(new Throwing(this));
+            _skills.Add(new UseThing(this));
 
             Recipes = new RecipeCollection();
 
@@ -93,12 +94,16 @@ namespace Assets.Scripts.Model
             Bag.Add(new Stack(UnderwearPrototype.Instance, 15));
             Bag.Add(new Stack(HumanToothPrototype.Instance, 150));
             Bag.Add(new Stack(PantsPrototype.Instance, 15));
-            Bag.Add(new Stack(MeatPrototype.Instance, 5));
 */
+            Bag.Add(new Stack(MeatPrototype.Instance, 5));
+            _defenceCorrector = new DefenceCorrector(this);
         }
 
         public void Update()
         {
+            if (IsDied)
+                return;
+
             _autoHealthIncrease.Do(() =>
             {
                 ChangeHP(Characteristics.HPRecoveryRatio.Value * MaxHP, this, null);
@@ -115,6 +120,7 @@ namespace Assets.Scripts.Model
 
             ModifyCharacteristics(_usingSkillCorrector);
             ModifyCharacteristics(CheatModifier);
+            ModifyCharacteristics(_defenceCorrector);
             foreach (var equipment in Equipments)
                 if (equipment is IModifierCorrector corrector)
                     ModifyCharacteristics(corrector);
@@ -138,10 +144,10 @@ namespace Assets.Scripts.Model
                 _lastFightTime = DateTime.Now;
             }
 
-            var hp = Math.Min(Math.Max(0, HP + hpChange), MaxHP);
-            if (hp < 101)
-                hp.Equals(null);
-            HP = hp;
+            if (hpChange < 0)
+                hpChange /= Characteristics.DefenceRatio.Value;
+
+            HP = Math.Min(Math.Max(0, HP + hpChange), MaxHP);
             if (source != null && skill != null && hpChange < 0)
                 DagameReceived?.Invoke(new DamageInfo(source, this, skill, -hpChange));
 
@@ -155,7 +161,7 @@ namespace Assets.Scripts.Model
 
         public IReadOnlyCollection<ISkill> Skills => _skills;
 
-        public float GetSkillPower(ISkill skill)
+        public float GetSkillPower(ISkill skill, SkillContext context)
         {
             var r = Characteristics.PowerRatio.Value;
 
@@ -163,20 +169,23 @@ namespace Assets.Scripts.Model
                 r *= expR;
 
             r *= 0.5f + HPNormalized / 2;
-            
+            r *= 2 - context.Angle; // х2 при ударе в спину
+
             return r;
         }
 
-        public void Use([NotNull] ISkill skill, IHealth target, float distance, Action onStartUse)
+        public void Use([NotNull] ISkill skill, SkillContext context, Action onStartUse = null)
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
 
-            if (!skill.ReadyToUse(target, distance))
+            if (!skill.ReadyToUse(context))
                 return;
 
-            skill.Use(target, distance, () =>
+            BeforeUseSkill?.Invoke(this, skill);
+
+            skill.Use(context, () =>
             {
-                if (target != null && target != this && target is IEnemy)
+                if (context.Target != null && context.Target != this && context.Target is IEnemy)
                 {
                     _lastFightTime = DateTime.Now;
                     InFight = true;
@@ -188,11 +197,10 @@ namespace Assets.Scripts.Model
                 _skillExperience[skillType] += Characteristics.SkillExpirienceIncrease.Value;
 
                 onStartUse?.Invoke();
-                OnUseSkill?.Invoke(this, skill);
             });
         }
 
-        public event Action<ISkilled, ISkill> OnUseSkill;
+        public event Action<ISkilled, ISkill> BeforeUseSkill;
 
         public void CollectLoot([NotNull] ILoot loot)
         {
@@ -209,6 +217,7 @@ namespace Assets.Scripts.Model
             public static readonly Guid SkillExpirienceIncreaseId = Guid.NewGuid();
             public static readonly Guid MaxHPId = Guid.NewGuid();
             public static readonly Guid HPRecoveryRatioId = Guid.NewGuid();
+            public static readonly Guid DefenceRatioId = Guid.NewGuid();
 
             /// <summary>
             /// Множитель к скорости передвижения
@@ -232,6 +241,11 @@ namespace Assets.Scripts.Model
             /// </summary>
             public IModifier HPRecoveryRatio { get; }
 
+            /// <summary>
+            /// Порезка входящего урона
+            /// </summary>
+            public IModifier DefenceRatio { get; }
+
             public IReadOnlyCollection<IModifier> AllModifiers { get; }
 
             public PlayerCharacteristics()
@@ -241,6 +255,7 @@ namespace Assets.Scripts.Model
                 SkillExpirienceIncrease = new Modifier(SkillExpirienceIncreaseId, "Скорость накопления опыта умений", 0.001f);
                 MaxHP = new Modifier(MaxHPId, "Объём здоровья", 100);
                 HPRecoveryRatio = new Modifier(HPRecoveryRatioId, "Восстановление здоровья", 0.001f);
+                DefenceRatio = new Modifier(DefenceRatioId, "Защита", 1);
 
                 AllModifiers = new[]
                 {
@@ -248,7 +263,8 @@ namespace Assets.Scripts.Model
                     PowerRatio,
                     SkillExpirienceIncrease,
                     MaxHP,
-                    HPRecoveryRatio
+                    HPRecoveryRatio,
+                    DefenceRatio
                 };
             }
 
@@ -289,7 +305,7 @@ namespace Assets.Scripts.Model
 
             if (modifier.Id == Player.PlayerCharacteristics.SpeedRatioId)
             {
-                if (_skilled.Skills.OfType<ICastableSkill>().Any(sk => sk.IsCasting))
+                if (_skilled.Skills.OfType<ICastableSkill>().Any(sk => sk.CastingInProgress))
                     modifier.Value *= 0.5f;
             }
         }

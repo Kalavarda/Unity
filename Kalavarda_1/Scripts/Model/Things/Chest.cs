@@ -8,7 +8,13 @@ namespace Assets.Scripts.Model.Things
     {
         private readonly IReadOnlyCollection<IThing> _loot;
 
-        public IThingPrototype Prototype => throw new NotImplementedException();
+        public IThingPrototype Prototype
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         public Chest([NotNull] IReadOnlyCollection<IThing> loot)
         {

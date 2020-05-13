@@ -16,7 +16,7 @@ namespace Assets.Scripts.Model.Skills
         public string Description =>
             $"Царапает противника, оставляет на противнике эффект Кровотечение на {DebuffDuration.TotalSeconds} секунд.";
 
-        public TimeSpan Interval => TimeSpan.FromSeconds(20);
+        public TimeSpan Interval => TimeSpan.FromSeconds(15);
 
         public TimeSpan Cooldown
         {
@@ -29,9 +29,9 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
-        public bool ReadyToUse(IHealth target, float distance)
+        public bool ReadyToUse(SkillContext context)
         {
-            return Cooldown == TimeSpan.Zero && target != null && distance < MaxDistance;
+            return Cooldown == TimeSpan.Zero && context.Target != null && context.Distance < MaxDistance;
         }
 
         public float CooldownNormalized => (float)Cooldown.TotalSeconds / (float)Interval.TotalSeconds;
@@ -43,18 +43,18 @@ namespace Assets.Scripts.Model.Skills
             _source = source ?? throw new ArgumentNullException(nameof(source));
         }
 
-        public void Use(IHealth target, float distance, Action onStartUse)
+        public void Use(SkillContext context, Action onStartUse)
         {
-            if (distance > MaxDistance)
+            if (context.Distance > MaxDistance)
                 return;
 
-            if (target is Player player)
+            if (context.Target is Player player)
             {
                 var ratio = 1f;
                 if (_source is ISkilled skilled)
-                    ratio = skilled.GetSkillPower(this);
+                    ratio = skilled.GetSkillPower(this, context);
 
-                var debuff = new Bleeding(_source, target, this, DateTime.Now + DebuffDuration, BaseDamage * ratio);
+                var debuff = new Bleeding(_source, context.Target, this, DateTime.Now + DebuffDuration, BaseDamage * ratio);
                 player.AddBuff(debuff);
                 _lastUseTime = DateTime.Now;
                 return;

@@ -1,10 +1,19 @@
-﻿using Assets.Scripts.Model;
+﻿using System.Linq;
+using Assets.Scripts.Model;
 using Assets.Scripts.Model.Skills;
 using Assets.Scripts.Utils;
 using UnityEngine;
 
 public class PlayerBehaviour : MonoBehaviour
 {
+    private readonly UseThing _useThingSkill;
+    private IThing _usableThing;
+
+    public PlayerBehaviour()
+    {
+        _useThingSkill = Player.Skills.OfType<UseThing>().First();
+    }
+
     public static PlayerBehaviour Instance { get; private set; }
 
     public GameObject PlayerGameObject => gameObject;
@@ -15,6 +24,18 @@ public class PlayerBehaviour : MonoBehaviour
     {
         Instance = this;
         Player.Died += PlayerDied;
+
+        _useThingSkill.OnEndCast += OnEndSkillCast;
+    }
+
+    private void OnEndSkillCast(ICastableSkill skill)
+    {
+        if (skill is UseThing useThingSkill)
+            if (useThingSkill.Thing == _usableThing)
+            {
+                var gameObj = ThingsBehaviour.Instance.Things[_usableThing];
+                gameObj.SetActive(false);
+            }
     }
 
     private void PlayerDied(IHealth player)
@@ -33,8 +54,15 @@ public class PlayerBehaviour : MonoBehaviour
             {
                 var gameObj = ThingsBehaviour.Instance.Things[thing];
                 var distance = Utils.Distance(gameObj, PlayerGameObject);
-                Player.Use(new UseThing(Player, thing), Player, distance, null);
-                gameObj.SetActive(false);
+                var skillContext = new SkillContext(Player, distance, 0);
+
+                if (!_useThingSkill.ReadyToUse(skillContext))
+                    return;
+
+                _usableThing = thing;
+                _useThingSkill.Thing = thing;
+
+                Player.Use(_useThingSkill, skillContext);
             }
         }
     }

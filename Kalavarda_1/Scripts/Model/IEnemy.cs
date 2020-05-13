@@ -22,6 +22,7 @@ namespace Assets.Scripts.Model
         public static readonly Guid PowerId = Guid.NewGuid();
         public static readonly Guid MaxHPId = Guid.NewGuid();
         public static readonly Guid HPRecoveryRatioId = Guid.NewGuid();
+        public static readonly Guid DefenceRatioId = Guid.NewGuid();
 
         /// <summary>
         /// Множитель силы ударов
@@ -35,6 +36,11 @@ namespace Assets.Scripts.Model
         /// </summary>
         public IModifier HPRecoveryRatio { get; }
 
+        /// <summary>
+        /// Порезка входящего урона
+        /// </summary>
+        public IModifier DefenceRatio { get; }
+
         public IReadOnlyCollection<IModifier> AllModifiers { get; }
 
         public EnemyCharacteristics()
@@ -42,12 +48,14 @@ namespace Assets.Scripts.Model
             PowerRatio = new Modifier(PowerId, "Множитель силы");
             MaxHP = new Modifier(MaxHPId, "Объём здоровья", 100);
             HPRecoveryRatio = new Modifier(HPRecoveryRatioId, "Восстановление здоровья", 0.001f);
+            DefenceRatio = new Modifier(DefenceRatioId, "Защита", 1);
 
             AllModifiers = new[]
             {
                 PowerRatio,
                 MaxHP,
-                HPRecoveryRatio
+                HPRecoveryRatio,
+                DefenceRatio
             };
         }
 
