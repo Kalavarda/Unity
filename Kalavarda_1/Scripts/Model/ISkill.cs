@@ -17,9 +17,16 @@ namespace Assets.Scripts.Model
 
         float MaxDistance { get; }
 
+        bool CanUseInFight { get; }
+
         bool ReadyToUse(SkillContext context);
 
-        void Use(SkillContext context, Action onStartUse);
+        void Use(SkillContext context);
+
+        /// <summary>
+        /// Вызывается при успешном использовании умения
+        /// </summary>
+        event Action<ISkill, SkillContext> OnSuccessUsed;
     }
 
     public interface ICastableSkill
@@ -53,7 +60,7 @@ namespace Assets.Scripts.Model
         /// </summary>
         float GetSkillPower(ISkill skill, SkillContext context);
 
-        void Use(ISkill skill, SkillContext context, Action onStartUse = null);
+        void Use(ISkill skill, SkillContext context);
 
         /// <summary>
         /// Вызывается перед тем, как начнётся применение умения
@@ -63,7 +70,7 @@ namespace Assets.Scripts.Model
 
     public class SkillContext
     {
-        public static SkillContext Empty { get; } = new SkillContext(null, 0, 0);
+        public static SkillContext Empty { get; } = new SkillContext(null, 0, null);
 
         public float Distance { get; }
 
@@ -72,9 +79,9 @@ namespace Assets.Scripts.Model
         /// <summary>
         /// Положение по отношению к цели (0 - сзади, 0.5 - сбоку, 1 - спереди)
         /// </summary>
-        public float Angle { get; }
+        public float? Angle { get; }
 
-        public SkillContext(IHealth target, float distance, float angle)
+        public SkillContext(IHealth target, float distance, float? angle)
         {
             Target = target;
             Distance = distance;

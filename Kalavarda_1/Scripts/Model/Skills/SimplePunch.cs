@@ -38,6 +38,8 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
+        public bool CanUseInFight => true;
+
         public bool ReadyToUse(SkillContext context)
         {
             return Cooldown == TimeSpan.Zero && context.Target != null && context.Distance < MaxDistance;
@@ -53,17 +55,19 @@ namespace Assets.Scripts.Model.Skills
             _weapon = weapon ?? throw new ArgumentNullException(nameof(weapon));
         }
 
-        public void Use(SkillContext context, Action onStartUse)
+        public void Use(SkillContext context)
         {
             if (!ReadyToUse(context))
                 return;
 
             _lastUseTime = DateTime.Now;
-            onStartUse?.Invoke();
 
             var ratio = _source.GetSkillPower(this, context);
 
             context.Target.ChangeHP(-ratio * _weapon.Power, _source, this);
+            OnSuccessUsed?.Invoke(this, context);
         }
+
+        public event Action<ISkill, SkillContext> OnSuccessUsed;
     }
 }

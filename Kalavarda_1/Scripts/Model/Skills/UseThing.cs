@@ -11,6 +11,7 @@ namespace Assets.Scripts.Model.Skills
         private SkillContext _skillContext;
         private DateTime _lastUseTime = DateTime.MinValue;
         private DateTime? _startCastTime;
+        private IThing _lastUsedThing;
 
         public IThing Thing { get; set; }
 
@@ -35,6 +36,17 @@ namespace Assets.Scripts.Model.Skills
 
         public float MaxDistance => 1.55f;
 
+        public bool CanUseInFight
+        {
+            get
+            {
+                if (Thing is Chest)
+                    return false;
+
+                return true;
+            }
+        }
+
         public UseThing([NotNull] ISkilled source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -49,73 +61,65 @@ namespace Assets.Scripts.Model.Skills
             if (!baseConditions)
                 return false;
 
-            if (context.Target is IFighter fighter)
-                if (fighter.InFight)
-                {
-                    if (Thing.Prototype == MeatPrototype.Instance)
-                        return false;
-                }
-
             return true;
         }
 
-        public void Use(SkillContext context, Action onStartUse)
+        public void Use(SkillContext context)
         {
             if (!ReadyToUse(context))
                 return;
 
             _skillContext = context;
+            _lastUsedThing = null;
 
             _startCastTime = DateTime.Now;
             OnBeginCast?.Invoke(this);
         }
 
-        private void UseThing2(IHealth target, Action onStartUse)
+        public event Action<ISkill, SkillContext> OnSuccessUsed;
+
+        private void Use(IHealth target, IThing thing)
         {
-            if (Thing is IEquipment equipment)
+            if (thing is IEquipment equipment)
                 if (target is Player player)
                 {
                     player.PutOn(equipment);
                     _lastUseTime = DateTime.Now;
-                    onStartUse?.Invoke();
                     return;
                 }
 
-            if (Thing is IStack stack)
+            if (thing is IStack stack)
             {
                 // костыльно
                 if (stack.Prototype == MeatPrototype.Instance)
                     if (target is Player player)
                     {
                         var ratio = player.GetSkillPower(this, _skillContext);
-                        var buff = new HealthRecovery(_source, target, this, DateTime.Now.AddSeconds(10), 2 * ratio);
+                        var buff = new HealthRecovery(_source, target, this, DateTime.Now.AddSeconds(20), 1 * ratio);
                         player.AddBuff(buff);
                     }
 
                 _lastUseTime = DateTime.Now;
-                onStartUse?.Invoke();
                 return;
             }
 
-            if (Thing is ILoot loot)
+            if (thing is ILoot loot)
                 if (_source is Player player)
                 {
-                    foreach (var thing in loot.GetLoot())
-                        player.Bag.Add(thing);
+                    foreach (var thing2 in loot.GetLoot())
+                        player.Bag.Add(thing2);
 
                     _lastUseTime = DateTime.Now;
-                    onStartUse?.Invoke();
                     return;
                 }
 
-            if (Thing is Recipe recipe)
+            if (thing is Recipe recipe)
                 if (_source is Player player)
                 {
                     player.Recipes.Add(recipe);
-                    player.Bag.Pull(Thing);
+                    player.Bag.Pull(thing);
 
                     _lastUseTime = DateTime.Now;
-                    onStartUse?.Invoke();
                     return;
                 }
 
@@ -150,13 +154,18 @@ namespace Assets.Scripts.Model.Skills
                     throw new NotImplementedException();
 
                 var elapsed = DateTime.Now - _startCastTime.Value;
-                if (elapsed >= CastDuration)
-                {
-                    UseThing2(_skillContext.Target, null); // TODO: обратный вызов - костыльно, заменить на событие
 
-                    _startCastTime = null;
-                    OnEndCast?.Invoke(this);
-                }
+                if (_lastUsedThing != Thing)
+                    if (elapsed >= CastDuration)
+                    {
+                        _lastUsedThing = Thing;
+                        Use(_skillContext.Target, Thing);
+
+                        OnSuccessUsed?.Invoke(this, _skillContext);
+                        OnEndCast?.Invoke(this);
+                        _startCastTime = null;
+                        _skillContext = null;
+                    }
 
                 return elapsed;
             }

@@ -1,4 +1,5 @@
-﻿using Assets.Scripts.Model;
+﻿using System.Linq;
+using Assets.Scripts.Model;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,22 +17,11 @@ public class CastableSkillBehaviour : MonoBehaviour
         _progressBackRect = ProgressBack.GetComponent<RectTransform>();
         _progressTopRect = ProgressTop.GetComponent<RectTransform>();
 
-        _player.BeforeUseSkill += BeforePlayerUseSkill;
-    }
-
-    private void BeforePlayerUseSkill(ISkilled player, ISkill skill)
-    {
-        if (skill is ICastableSkill castableSkill)
+        foreach (var castableSkill in _player.Skills.OfType<ICastableSkill>())
         {
-            _currentCastableSkill = castableSkill;
-            castableSkill.OnEndCast += OnEndCastSkill;
+            castableSkill.OnBeginCast += skill => _currentCastableSkill = skill;
+            castableSkill.OnEndCast += skill => _currentCastableSkill = null;
         }
-    }
-
-    private void OnEndCastSkill(ICastableSkill skill)
-    {
-        skill.OnEndCast -= OnEndCastSkill;
-        _currentCastableSkill = null;
     }
 
     void Update()
@@ -48,8 +38,6 @@ public class CastableSkillBehaviour : MonoBehaviour
         {
             ProgressBack.gameObject.SetActive(false);
             ProgressTop.gameObject.SetActive(false);
-
-            //_progressTopRect.sizeDelta = new Vector2(0, _progressBackRect.rect.height);
         }
     }
 }

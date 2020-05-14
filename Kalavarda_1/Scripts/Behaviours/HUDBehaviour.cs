@@ -53,31 +53,39 @@ public class HUDBehaviour : MonoBehaviour
 
     void Update()
     {
-        Target = null;
-        TargetGameObject = null;
-
-        if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out var hit))
+        try
         {
-            var obj = hit.collider.gameObject;
-            if (PlayerBehaviour.Instance != null && Utils.Distance(obj, PlayerBehaviour.Instance.PlayerGameObject) < MaxTargetDistance)
-                if (SpawnerBehaviour.SpawnedHealth.TryGetValue(obj, out var health))
-                {
-                    TargetGameObject = obj;
-                    Target = health;
-                }
+            Target = null;
+            TargetGameObject = null;
+
+            if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out var hit))
+            {
+                var obj = hit.collider.gameObject;
+                if (PlayerBehaviour.Instance != null && Utils.Distance(obj, PlayerBehaviour.Instance.PlayerGameObject) < MaxTargetDistance)
+                    if (SpawnerBehaviour.SpawnedHealth.TryGetValue(obj, out var health))
+                    {
+                        TargetGameObject = obj;
+                        Target = health;
+                    }
+            }
+
+            ShowHP(_player);
+
+            // Target
+            ShowTarget();
+
+            if (Input.GetKeyDown(KeyCode.P))
+                DpsPanel.SetActive(!DpsPanel.activeSelf);
+            if (DpsPanel.activeSelf)
+                ShowDps(DpsMeter);
+
+            FightIndicator.SetActive(_player.InFight);
         }
-
-        ShowHP(_player);
-
-        // Target
-        ShowTarget();
-
-        if (Input.GetKeyDown(KeyCode.P))
-            DpsPanel.SetActive(!DpsPanel.activeSelf);
-        if (DpsPanel.activeSelf)
-            ShowDps(DpsMeter);
-
-        FightIndicator.SetActive(_player.InFight);
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
     private void ShowTarget()

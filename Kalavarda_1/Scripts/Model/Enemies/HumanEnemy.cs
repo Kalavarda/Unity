@@ -23,21 +23,6 @@ namespace Assets.Scripts.Model.Enemies
 
         public EnemyCharacteristics Characteristics { get; }
 
-        public HumanEnemy(float hpRatio, float powerRatio, [NotNull] IReadOnlyCollection<IThing> loot, bool isFemale = false)
-        {
-            _loot = loot ?? throw new ArgumentNullException(nameof(loot));
-            Characteristics = new EnemyCharacteristics();
-            _corrector = new EnemyCorrector(hpRatio, powerRatio);
-            _defenceCorrector = new DefenceCorrector(this);
-            HP = Characteristics.MaxHP.Value;
-            IsFemale = isFemale;
-
-            var skills = new List<ISkill> { new SimplePunch(this, new Fist()) };
-            if (isFemale)
-                skills.Add(new Scratch(this));
-            _skills = skills.ToArray();
-        }
-
         public IReadOnlyCollection<IThing> GetLoot()
         {
             return _loot;
@@ -87,6 +72,33 @@ namespace Assets.Scripts.Model.Enemies
 
         public event Action<DamageInfo> DagameReceived;
 
+        public HumanEnemy(float hpRatio, float powerRatio, [NotNull] IReadOnlyCollection<IThing> loot, bool isFemale = false)
+        {
+            _loot = loot ?? throw new ArgumentNullException(nameof(loot));
+            Characteristics = new EnemyCharacteristics();
+            _corrector = new EnemyCorrector(hpRatio, powerRatio);
+            _defenceCorrector = new DefenceCorrector(this);
+            HP = Characteristics.MaxHP.Value;
+            IsFemale = isFemale;
+
+            var skills = new List<ISkill> { new SimplePunch(this, new Fist()) };
+            if (isFemale)
+                skills.Add(new Scratch(this));
+            _skills = skills.ToArray();
+
+            foreach (var skill in Skills)
+                skill.OnSuccessUsed += Skill_OnSuccessUsed;
+        }
+
+        private void Skill_OnSuccessUsed(ISkill skill, SkillContext context)
+        {
+            if (context.Target == null || context.Target == this)
+                return;
+
+            _lastFightTime = DateTime.Now;
+            InFight = true;
+        }
+
         public void ChangeHP(float hpChange, ISkilled source, ISkill skill)
         {
             if (source != null && source != this && hpChange < 0)
@@ -114,7 +126,8 @@ namespace Assets.Scripts.Model.Enemies
             var r = Characteristics.PowerRatio.Value;
 
             r *= 0.5f + HPNormalized / 2;
-            r *= 2 - context.Angle; // х2 при ударе в спину
+            if (context.Angle != null)
+                r *= 2 - context.Angle.Value; // х2 при ударе в спину
 
             return r;
         }
@@ -157,24 +170,18 @@ namespace Assets.Scripts.Model.Enemies
             _buffs.Add(buff);
         }
 
-        public void Use([NotNull] ISkill skill, SkillContext context, Action onStartUse)
+        public void Use([NotNull] ISkill skill, SkillContext context)
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
+
+            if (!skill.CanUseInFight && InFight)
+                return;
 
             if (!skill.ReadyToUse(context))
                 return;
 
             BeforeUseSkill?.Invoke(this, skill);
-
-            skill.Use(context, () =>
-            {
-                if (context.Target != null && context.Target != this)
-                {
-                    _lastFightTime = DateTime.Now;
-                    InFight = true;
-                }
-                onStartUse?.Invoke();
-            });
+            skill.Use(context);
         }
 
         public event Action<ISkilled, ISkill> BeforeUseSkill;

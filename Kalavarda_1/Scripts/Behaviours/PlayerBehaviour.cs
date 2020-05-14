@@ -54,7 +54,7 @@ public class PlayerBehaviour : MonoBehaviour
             {
                 var gameObj = ThingsBehaviour.Instance.Things[thing];
                 var distance = Utils.Distance(gameObj, PlayerGameObject);
-                var skillContext = new SkillContext(Player, distance, 0);
+                var skillContext = new SkillContext(Player, distance, null);
 
                 if (!_useThingSkill.ReadyToUse(skillContext))
                     return;

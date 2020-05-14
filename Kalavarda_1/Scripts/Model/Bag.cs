@@ -78,37 +78,44 @@ namespace Assets.Scripts
         public IReadOnlyCollection<IThing> Pull(IStack stack)
         {
             if (stack == null) throw new ArgumentNullException(nameof(stack));
-
-            if (stack.Count == 0)
-                return new IThing[0];
-
-            var stackCells = _cells.Where(c => c.Item is IStack s && s.Prototype == stack.Prototype).ToArray();
-            if (stackCells.Any())
+            try
             {
-                if (stackCells.Sum(c => ((IStack)c.Item).Count) < stack.Count)
+                if (stack.Count == 0)
+                    return new IThing[0];
+
+                var stackCells = _cells.Where(c => c.Item is IStack s && s.Prototype == stack.Prototype).ToArray();
+                if (stackCells.Any())
+                {
+                    if (stackCells.Sum(c => ((IStack)c.Item).Count) < stack.Count)
+                        throw new Exception("Недостаточно предметов " + stack.Prototype.Name);
+
+                    // TODO: тут надо бы с учётом того что предметы могут быть размазаны по разным стаков
+                    stackCells.First().Remove(stack);
+
+                    return new IThing[] { new Stack(stack.Prototype, stack.Count) };
+                }
+
+                var cells = _cells.Where(c => c.Item.Prototype == stack.Prototype).Take(stack.Count).ToArray();
+                if (cells.Length < stack.Count)
                     throw new Exception("Недостаточно предметов " + stack.Prototype.Name);
 
-                // TODO: тут надо бы с учётом того что предметы могут быть размазаны по разным стаков
-                stackCells.First().Remove(stack);
+                var result = new Collection<IThing>();
 
-                return new IThing[] { new Stack(stack.Prototype, stack.Count) };
+                foreach (var cell in cells)
+                {
+                    result.Add(cell.Item);
+                    cell.OnStackCountChange -= CellOnStackCountChange;
+                    _cells.Remove(cell);
+                    OnCellRemoved?.Invoke(this, cell);
+                }
+
+                return result;
             }
-
-            var cells = _cells.Where(c => c.Item.Prototype == stack.Prototype).Take(stack.Count).ToArray();
-            if (cells.Length < stack.Count)
-                throw new Exception("Недостаточно предметов " + stack.Prototype.Name);
-
-            var result = new Collection<IThing>();
-
-            foreach (var cell in cells)
+            catch (Exception e)
             {
-                result.Add(cell.Item);
-                cell.OnStackCountChange -= CellOnStackCountChange;
-                _cells.Remove(cell);
-                OnCellRemoved?.Invoke(this, cell);
+                Console.WriteLine(e);
+                throw;
             }
-
-            return result;
         }
 
         public IThing Pull(IThing thing)

@@ -18,6 +18,21 @@ public class EnemyBehaviour : MonoBehaviour
 
         if (_thisEnemy is IFighter fighter)
             fighter.DagameReceived += damage => _dpsMeter.CurrentFight.AddDamage(damage);
+
+        if (_thisEnemy is ISkilled skilled)
+            foreach (var skill in skilled.Skills)
+                skill.OnSuccessUsed += Skill_OnSuccessUsed;
+    }
+
+    private void Skill_OnSuccessUsed(ISkill skill, SkillContext context)
+    {
+        var animState = AnimationAttribute.GetAnimationState(skill);
+        if (animState != null)
+            AnimationManagerBase.CreateOrGet(gameObject).SetState(animState.Value);
+
+        var audioSource = SkillBehaviour.GetAudioSource(skill);
+        if (audioSource != null)
+            audioSource.Play();
     }
 
     void Update()
@@ -48,14 +63,7 @@ public class EnemyBehaviour : MonoBehaviour
 
                 var skill = availableSkills[_rand.Next(availableSkills.Length)];
                 if (skill != null)
-                    skilled.Use(skill, skillContext, () =>
-                    {
-                        var animState = AnimationAttribute.GetAnimationState(skill);
-                        if (animState != null)
-                            AnimationManagerBase.CreateOrGet(gameObject).SetState(animState.Value);
-
-                        SkillBehaviour.GetAudioSource(skill)?.Play();
-                    });
+                    skilled.Use(skill, skillContext);
             }
         }
     }

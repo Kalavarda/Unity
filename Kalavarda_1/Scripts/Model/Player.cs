@@ -86,17 +86,34 @@ namespace Assets.Scripts.Model
             _weapons.Add(fist);
             _skills.Add(new SimplePunch(this, fist));
             _skills.Add(new UseThing(this));
+            _skills.Add(new StrongPunch(this, fist));
+
+            foreach (var skill in Skills)
+                skill.OnSuccessUsed += Skill_OnSuccessUsed;
 
             Recipes = new RecipeCollection();
-
 /*
             Bag.Add(new Stack(ScalpPrototype.Instance, 15));
             Bag.Add(new Stack(UnderwearPrototype.Instance, 15));
             Bag.Add(new Stack(HumanToothPrototype.Instance, 150));
             Bag.Add(new Stack(PantsPrototype.Instance, 15));
-*/
             Bag.Add(new Stack(MeatPrototype.Instance, 5));
+*/
             _defenceCorrector = new DefenceCorrector(this);
+        }
+
+        private void Skill_OnSuccessUsed(ISkill skill, SkillContext context)
+        {
+            if (context.Target != null && context.Target != this && context.Target is IEnemy)
+            {
+                _lastFightTime = DateTime.Now;
+                InFight = true;
+            }
+
+            var skillType = skill.GetType();
+            if (!_skillExperience.ContainsKey(skillType))
+                _skillExperience.Add(skillType, 1);
+            _skillExperience[skillType] += Characteristics.SkillExpirienceIncrease.Value;
         }
 
         public void Update()
@@ -169,35 +186,24 @@ namespace Assets.Scripts.Model
                 r *= expR;
 
             r *= 0.5f + HPNormalized / 2;
-            r *= 2 - context.Angle; // х2 при ударе в спину
+            if (context.Angle != null)
+                r *= 2 - context.Angle.Value; // х2 при ударе в спину
 
             return r;
         }
 
-        public void Use([NotNull] ISkill skill, SkillContext context, Action onStartUse = null)
+        public void Use([NotNull] ISkill skill, SkillContext context)
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
+
+            if (!skill.CanUseInFight && InFight)
+                return;
 
             if (!skill.ReadyToUse(context))
                 return;
 
             BeforeUseSkill?.Invoke(this, skill);
-
-            skill.Use(context, () =>
-            {
-                if (context.Target != null && context.Target != this && context.Target is IEnemy)
-                {
-                    _lastFightTime = DateTime.Now;
-                    InFight = true;
-                }
-
-                var skillType = skill.GetType();
-                if (!_skillExperience.ContainsKey(skillType))
-                    _skillExperience.Add(skillType, 1);
-                _skillExperience[skillType] += Characteristics.SkillExpirienceIncrease.Value;
-
-                onStartUse?.Invoke();
-            });
+            skill.Use(context);
         }
 
         public event Action<ISkilled, ISkill> BeforeUseSkill;

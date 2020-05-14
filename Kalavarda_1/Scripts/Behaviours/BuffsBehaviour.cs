@@ -22,12 +22,20 @@ public class BuffsBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     void Start()
     {
-        PrepareControls(PlayerNegBuffs, _negControls);
-        PrepareControls(PlayerPosBuffs, _posControls);
-        PrepareControls(TargetPosBuffs, _targetPosControls);
-        PrepareControls(TargetNegBuffs, _targetNegControls);
+        try
+        {
+            PrepareControls(PlayerNegBuffs, _negControls);
+            PrepareControls(PlayerPosBuffs, _posControls);
+            PrepareControls(TargetPosBuffs, _targetPosControls);
+            PrepareControls(TargetNegBuffs, _targetNegControls);
 
-        BuffTooltip.SetActive(false);
+            BuffTooltip.SetActive(false);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
     private void PrepareControls(GameObject buffsPanel, IDictionary<int, BuffControls> controls)

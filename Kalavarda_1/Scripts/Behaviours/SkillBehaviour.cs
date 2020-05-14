@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using Assets.Scripts;
 using Assets.Scripts.Behaviours;
 using Assets.Scripts.Model;
 using Assets.Scripts.Model.Skills;
@@ -29,46 +28,75 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     void Start()
     {
-        Instance = this;
+        try
+        {
+            Instance = this;
 
-        Tooltip.SetActive(false);
-        _tooltipText_Name = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Name"));
-        _tooltipText_Description = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Description"));
-        _tooltipText_Interval = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Interval"));
+            Tooltip.SetActive(false);
+            _tooltipText_Name = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Name"));
+            _tooltipText_Description = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Description"));
+            _tooltipText_Interval = Tooltip.GetComponentsInChildren<Text>().First(t => t.name.Contains("Interval"));
 
-        _buttonText = GetComponentInChildren<Text>();
+            _buttonText = GetComponentInChildren<Text>();
 
-        var transforms = gameObject.GetComponentsInChildren<Transform>();
-        _backPanel = transforms.First(obj => obj.name.Contains("Back")).GetComponent<RectTransform>();
-        _cooldownPanel = transforms.First(obj => obj.name.Contains("Cooldown")).GetComponent<RectTransform>();
+            var transforms = gameObject.GetComponentsInChildren<Transform>();
+            _backPanel = transforms.First(obj => obj.name.Contains("Back")).GetComponent<RectTransform>();
+            _cooldownPanel = transforms.First(obj => obj.name.Contains("Cooldown")).GetComponent<RectTransform>();
+
+            foreach (var skill in _player.Skills)
+                skill.OnSuccessUsed += Skill_OnSuccessUsed;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+    }
+
+    private void Skill_OnSuccessUsed(ISkill skill, SkillContext context)
+    {
+        var animState = AnimationAttribute.GetAnimationState(skill);
+        if (animState != null)
+            PlayerMoveBehaviour.Instance.AnimationManager.SetState(animState.Value);
+
+        var audioSource = GetAudioSource(skill);
+        if (audioSource != null)
+            audioSource.Play();
     }
 
     void Update()
     {
-        var skill = GetSkill(_player, SkillKey);
-        if (skill == null)
+        try
         {
-            _buttonText.text = string.Empty;
-            _cooldownPanel.gameObject.SetActive(false);
-            return;
+            var skill = GetSkill(_player, SkillKey);
+            if (skill == null)
+            {
+                _buttonText.text = string.Empty;
+                _cooldownPanel.gameObject.SetActive(false);
+                return;
+            }
+
+            ShowCooldown(skill);
+
+            if (skill.Cooldown > TimeSpan.Zero)
+                return;
+
+            if (PlayerMoveBehaviour.Instance == null)
+                return;
+
+            SkillProgressNormalized = 0;
+
+            if (Input.GetKeyDown(SkillKey))
+                UseSkill(skill, HUDBehaviour.Instance, PlayerBehaviour.Instance);
         }
-
-        ShowCooldown(skill);
-
-        if (skill.Cooldown > TimeSpan.Zero)
-            return;
-
-        if (PlayerMoveBehaviour.Instance == null)
-            return;
-
-        var animManager = PlayerMoveBehaviour.Instance.AnimationManager;
-        SkillProgressNormalized = 0;
-
-        if (Input.GetKeyDown(SkillKey))
-            UseSkill(skill, HUDBehaviour.Instance, animManager, PlayerBehaviour.Instance);
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
-    private void UseSkill(ISkill skill, HUDBehaviour hud, IAnimationManager animManager, PlayerBehaviour playerBehaviour)
+    private static void UseSkill(ISkill skill, HUDBehaviour hud, PlayerBehaviour playerBehaviour)
     {
         if (hud == null)
             return;
@@ -82,15 +110,7 @@ public class SkillBehaviour : MonoBehaviour, IPointerEnterHandler, IPointerExitH
             : 0;
 
         var skillContext = new SkillContext(hud.Target, distance, angle);
-
-        playerBehaviour.Player.Use(skill, skillContext, () =>
-        {
-            var animState = AnimationAttribute.GetAnimationState(skill);
-            if (animState != null)
-                animManager.SetState(animState.Value);
-
-            GetAudioSource(skill)?.Play();
-        });
+        playerBehaviour.Player.Use(skill, skillContext);
     }
 
     private void ShowCooldown(ISkill skill)

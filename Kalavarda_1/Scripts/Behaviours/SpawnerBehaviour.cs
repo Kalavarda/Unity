@@ -99,22 +99,30 @@ public class SpawnerBehaviour : MonoBehaviour
 
     private void Health_Died(IHealth dead)
     {
-        dead.Died -= Health_Died;
-
-        var deadGameObject = AllSpawned.First(p => p.Value == dead).Key;
-        if (DestroyIfDeath)
+        try
         {
-            RemoveSpawned(deadGameObject);
-            Destroy(deadGameObject);
-        }
-        else
-        {
-            var animMaganer = AnimationManagerBase.CreateOrGet(deadGameObject);
-            animMaganer.SetState(AnimationState.Die);
-        }
+            dead.Died -= Health_Died;
 
-        if (dead is ILoot loot)
-            _player.CollectLoot(loot);
+            var deadGameObject = AllSpawned.First(p => p.Value == dead).Key;
+            if (DestroyIfDeath)
+            {
+                RemoveSpawned(deadGameObject);
+                Destroy(deadGameObject);
+            }
+            else
+            {
+                var animMaganer = AnimationManagerBase.CreateOrGet(deadGameObject);
+                animMaganer.SetState(AnimationState.Die);
+            }
+
+            if (dead is ILoot loot)
+                _player.CollectLoot(loot);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
     private static ISpawned CreateISpawned(GameObject prefab)

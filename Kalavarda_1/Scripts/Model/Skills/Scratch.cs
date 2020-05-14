@@ -29,6 +29,8 @@ namespace Assets.Scripts.Model.Skills
             }
         }
 
+        public bool CanUseInFight => true;
+
         public bool ReadyToUse(SkillContext context)
         {
             return Cooldown == TimeSpan.Zero && context.Target != null && context.Distance < MaxDistance;
@@ -43,7 +45,7 @@ namespace Assets.Scripts.Model.Skills
             _source = source ?? throw new ArgumentNullException(nameof(source));
         }
 
-        public void Use(SkillContext context, Action onStartUse)
+        public void Use(SkillContext context)
         {
             if (context.Distance > MaxDistance)
                 return;
@@ -57,10 +59,13 @@ namespace Assets.Scripts.Model.Skills
                 var debuff = new Bleeding(_source, context.Target, this, DateTime.Now + DebuffDuration, BaseDamage * ratio);
                 player.AddBuff(debuff);
                 _lastUseTime = DateTime.Now;
+                OnSuccessUsed?.Invoke(this, context);
                 return;
             }
 
             throw new NotImplementedException();
         }
+
+        public event Action<ISkill, SkillContext> OnSuccessUsed;
     }
 }

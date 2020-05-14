@@ -79,7 +79,7 @@ public class BagBehaviour : MonoBehaviour
 
     private void OnButtonClick(int cellPos)
     {
-        var skillContext = new SkillContext(_player, 0, 0);
+        var skillContext = new SkillContext(_player, 0, null);
 
         if (!_useThingSkill.ReadyToUse(skillContext))
             return;
@@ -101,10 +101,18 @@ public class BagBehaviour : MonoBehaviour
 
     void Update()
     {
-        foreach (var pair in _buttonPositions)
+        try
         {
-            var bagCell = _bag.Cells.Skip(pair.Key).FirstOrDefault();
-            TuneButton(pair.Value, bagCell);
+            foreach (var pair in _buttonPositions)
+            {
+                var bagCell = _bag.Cells.Skip(pair.Key).FirstOrDefault();
+                TuneButton(pair.Value, bagCell);
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
         }
     }
 }
